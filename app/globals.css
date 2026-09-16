@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f9ff;
+  --foreground: #0b1c30;
+  --error-container: #ffdad6;
+  --primary-container: #131a33;
+  --inverse-on-surface: #eaf1ff;
+  --surface-container-lowest: #ffffff;
+  --on-primary-container: #7b83a0;
+  --outline-variant: #c6c6ce;
+  --error: #ba1a1a;
+  --secondary-container: #d0d9fd;
+  --on-primary-fixed-variant: #3e4660;
+  --on-error: #ffffff;
+  --on-tertiary: #ffffff;
+  --tertiary-fixed-dim: #62df7d;
+  --outline: #76767e;
+  --tertiary-container: #002109;
+  --on-surface-variant: #45464d;
+  --secondary-fixed: #dbe1ff;
+  --on-primary-fixed: #131a33;
+  --on-tertiary-fixed-variant: #005320;
+  --surface-container-high: #dce9ff;
+  --surface-tint: #565d79;
+  --on-tertiary-fixed: #002109;
+  --surface-variant: #d3e4fe;
+  --on-error-container: #93000a;
+  --on-secondary: #ffffff;
+  --on-surface: #0b1c30;
+  --on-secondary-fixed: #111a36;
+  --inverse-primary: #bec5e5;
+  --surface-dim: #cbdbf5;
+  --tertiary: #000000;
+  --primary-fixed-dim: #bec5e5;
+  --on-secondary-container: #555e7d;
+  --on-secondary-fixed-variant: #3d4664;
+  --secondary-fixed-dim: #bdc5e9;
+  --primary-fixed: #dbe1ff;
+  --on-background: #0b1c30;
+  --inverse-surface: #213145;
+  --surface-container: #e5eeff;
+  --surface: #f8f9ff;
+  --primary: #000000;
+  --on-primary: #ffffff;
+  --surface-container-low: #eff4ff;
+  --surface-bright: #f8f9ff;
+  --tertiary-fixed: #7ffc97;
+  --on-tertiary-container: #009842;
+  --surface-container-highest: #d3e4fe;
+  --secondary: #545d7c;
+  --border-interior: #e2e8f0;
+  --border-boundary: #cbd5e1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-error-container: var(--error-container);
+  --color-primary-container: var(--primary-container);
+  --color-inverse-on-surface: var(--inverse-on-surface);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-outline-variant: var(--outline-variant);
+  --color-error: var(--error);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-primary-fixed-variant: var(--on-primary-fixed-variant);
+  --color-on-error: var(--on-error);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-fixed-dim: var(--tertiary-fixed-dim);
+  --color-outline: var(--outline);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-secondary-fixed: var(--secondary-fixed);
+  --color-on-primary-fixed: var(--on-primary-fixed);
+  --color-on-tertiary-fixed-variant: var(--on-tertiary-fixed-variant);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-tint: var(--surface-tint);
+  --color-on-tertiary-fixed: var(--on-tertiary-fixed);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-error-container: var(--on-error-container);
+  --color-on-secondary: var(--on-secondary);
+  --color-on-surface: var(--on-surface);
+  --color-on-secondary-fixed: var(--on-secondary-fixed);
+  --color-inverse-primary: var(--inverse-primary);
+  --color-surface-dim: var(--surface-dim);
+  --color-tertiary: var(--tertiary);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-on-secondary-fixed-variant: var(--on-secondary-fixed-variant);
+  --color-secondary-fixed-dim: var(--secondary-fixed-dim);
+  --color-primary-fixed: var(--primary-fixed);
+  --color-on-background: var(--on-background);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-bright: var(--surface-bright);
+  --color-tertiary-fixed: var(--tertiary-fixed);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-secondary: var(--secondary);
+  --color-border-interior: var(--border-interior);
+  --color-border-boundary: var(--border-boundary);
+
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-data-mono: var(--font-jetbrains-mono);
+  --font-headline: var(--font-inter);
+
+  --spacing-filter-h: 1.75rem;
+  --spacing-cell-px: 0.625rem;
+  --spacing-cell-py: 0.375rem;
+  --spacing-space-2xs: 0.125rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.375rem;
+  --spacing-space-md: 0.5rem;
+  --spacing-space-lg: 0.75rem;
+  --spacing-space-xl: 1rem;
+  --spacing-space-2xl: 1.5rem;
+  --spacing-table-row-h: 2.25rem;
+
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-inter), Inter, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.font-data-mono {
+  font-family: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

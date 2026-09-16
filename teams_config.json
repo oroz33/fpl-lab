@@ -1,0 +1,111 @@
+{
+  "tmcl": "6pdwluctev9iebv00r4qqukno",
+  "outlet_id": "137iv2fgxqg281d2xtb1pl4oyi",
+  "teams_page_url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams",
+  "api_url_patterns": {
+    "seasonstats": "https://api.performfeeds.com/soccerdata/seasonstats/137iv2fgxqg281d2xtb1pl4oyi?ctst={ctst}&tmcl={tmcl}&detailed=yes&_rt=b&_fmt=json",
+    "seasonexpectedgoals": "https://api.performfeeds.com/soccerdata/seasonexpectedgoals/137iv2fgxqg281d2xtb1pl4oyi?tmcl={tmcl}&ctst={ctst}&_fmt=json&_rt=b"
+  },
+  "teams": [
+    {
+      "name": "AFC BOURNEMOUTH",
+      "ctst": "1pse9ta7a45pi2w2grjim70ge",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/afc-bournemouth/1pse9ta7a45pi2w2grjim70ge"
+    },
+    {
+      "name": "ARSENAL FC",
+      "ctst": "4dsgumo7d4zupm2ugsvm4zm4d",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/arsenal-fc/4dsgumo7d4zupm2ugsvm4zm4d"
+    },
+    {
+      "name": "ASTON VILLA FC",
+      "ctst": "b496gs285it6bheuikox6z9mj",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/aston-villa-fc/b496gs285it6bheuikox6z9mj"
+    },
+    {
+      "name": "BRENTFORD FC",
+      "ctst": "7yx5dqhhphyvfisohikodajhv",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/brentford-fc/7yx5dqhhphyvfisohikodajhv"
+    },
+    {
+      "name": "BRIGHTON & HOVE ALBION FC",
+      "ctst": "e5p0ehyguld7egzhiedpdnc3w",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/brighton-hove-albion-fc/e5p0ehyguld7egzhiedpdnc3w"
+    },
+    {
+      "name": "CHELSEA FC",
+      "ctst": "9q0arba2kbnywth8bkxlhgmdr",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/chelsea-fc/9q0arba2kbnywth8bkxlhgmdr"
+    },
+    {
+      "name": "COVENTRY CITY FC",
+      "ctst": "dacoc20k0n3fxu4zek8wufmko",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/coventry-city-fc/dacoc20k0n3fxu4zek8wufmko"
+    },
+    {
+      "name": "CRYSTAL PALACE FC",
+      "ctst": "1c8m2ko0wxq1asfkuykurdr0y",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/crystal-palace-fc/1c8m2ko0wxq1asfkuykurdr0y"
+    },
+    {
+      "name": "EVERTON FC",
+      "ctst": "ehd2iemqmschhj2ec0vayztzz",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/everton-fc/ehd2iemqmschhj2ec0vayztzz"
+    },
+    {
+      "name": "FULHAM FC",
+      "ctst": "hzqh7z0mdl3v7gwete66syxp",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/fulham-fc/hzqh7z0mdl3v7gwete66syxp"
+    },
+    {
+      "name": "HULL CITY AFC",
+      "ctst": "f0figafm2v9h8ofo6slajj7xf",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/hull-city-afc/f0figafm2v9h8ofo6slajj7xf"
+    },
+    {
+      "name": "IPSWICH TOWN FC",
+      "ctst": "8b523ujgl21tbc01me65q0aoh",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/ipswich-town-fc/8b523ujgl21tbc01me65q0aoh"
+    },
+    {
+      "name": "LEEDS UNITED FC",
+      "ctst": "48gk2hpqtsl6p9sx9kjhaydq4",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/leeds-united-fc/48gk2hpqtsl6p9sx9kjhaydq4"
+    },
+    {
+      "name": "LIVERPOOL FC",
+      "ctst": "c8h9bw1l82s06h77xxrelzhur",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/liverpool-fc/c8h9bw1l82s06h77xxrelzhur"
+    },
+    {
+      "name": "MANCHESTER CITY FC",
+      "ctst": "a3nyxabgsqlnqfkeg41m6tnpp",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/manchester-city-fc/a3nyxabgsqlnqfkeg41m6tnpp"
+    },
+    {
+      "name": "MANCHESTER UNITED FC",
+      "ctst": "6eqit8ye8aomdsrrq0hk3v7gh",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/manchester-united-fc/6eqit8ye8aomdsrrq0hk3v7gh"
+    },
+    {
+      "name": "NEWCASTLE UNITED FC",
+      "ctst": "7vn2i2kd35zuetw6b38gw9jsz",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/newcastle-united-fc/7vn2i2kd35zuetw6b38gw9jsz"
+    },
+    {
+      "name": "NOTTINGHAM FOREST FC",
+      "ctst": "1qtaiy11gswx327s0vkibf70n",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/nottingham-forest-fc/1qtaiy11gswx327s0vkibf70n"
+    },
+    {
+      "name": "SUNDERLAND AFC",
+      "ctst": "1r3545b2dzan8yqa80gtmcjch",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/sunderland-afc/1r3545b2dzan8yqa80gtmcjch"
+    },
+    {
+      "name": "TOTTENHAM HOTSPUR FC",
+      "ctst": "22doj4sgsocqpxw45h607udje",
+      "url": "https://www.scoresway.com/en_GB/soccer/premier-league-2026-2027/6pdwluctev9iebv00r4qqukno/teams/tottenham-hotspur-fc/22doj4sgsocqpxw45h607udje"
+    }
+  ]
+}
