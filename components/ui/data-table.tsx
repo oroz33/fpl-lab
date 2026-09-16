@@ -138,17 +138,25 @@ export function DataTable<T extends { id: string }>({
   rows,
   emptyMessage = "No rows match the current filters.",
   onFiltersChange,
+  horizon: horizonProp,
+  onHorizonChange,
 }: {
   columns: ColumnDef<T>[];
   rows: T[];
   emptyMessage?: string;
   onFiltersChange?: (filters: ActiveColumnFilter[]) => void;
+  /** When set with onHorizonChange, horizon is controlled by the parent (e.g. Dashboard). */
+  horizon?: FixtureHorizon;
+  onHorizonChange?: (horizon: FixtureHorizon) => void;
 }) {
   const [sort, setSort] = useState<SortState>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [pageSize, setPageSize] = useState<PageSize>(50);
   const [page, setPage] = useState(1);
-  const [horizon, setHorizon] = useState<FixtureHorizon>(3);
+  const [internalHorizon, setInternalHorizon] = useState<FixtureHorizon>(3);
+  const controlled = horizonProp !== undefined && onHorizonChange !== undefined;
+  const horizon = controlled ? horizonProp : internalHorizon;
+  const setHorizon = controlled ? onHorizonChange : setInternalHorizon;
 
   syncFixtureHorizon(horizon);
 

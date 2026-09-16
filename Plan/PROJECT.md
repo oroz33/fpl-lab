@@ -2,8 +2,8 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.6.0` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
-**עודכן לאחרונה:** Favorite Players · Metric header tooltips · Regression Lab (Coming Soon) · Fixture Tracker · Next 3|5 + Avg FDR · Team accents · FDR palette
+**גרסה נוכחית:** `v1.6.1` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
+**עודכן לאחרונה:** Next 3|5 tab persistence · Favorite Players · Metric header tooltips · Regression Lab (Coming Soon) · Fixture Tracker · Avg FDR · Team accents · FDR palette
 
 ---
 
@@ -320,7 +320,7 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 | Sticky | Player + Next fixtures (3\|5 toggle) (צל ימין); Avg FDR; כוכב Favorite משמאל לשם; אייקון Compare ב־hover → `/h2h?a={id}` |
 | מספריים | יישור ימין, JetBrains Mono + `tnum` |
 | Heatmap | דינמי לפי שורות מסוננות; **Top 2.5%** (`≥ P97.5`) = emerald; **Bottom 5%** (`≤ P5`) = rose רק כש־`p5 > 0` ויש שונות; Apps/Mins ללא heatmap |
-| FDR | Next chips use Overall FDR (`fdrOverall`); header toggle Next 3\|5 + Avg FDR column; palette `#15803D` / `#16A34A` / `#64748B` / `#DC2626` / `#991B1B` (1–5, easy→hard) |
+| FDR | Next chips use Overall FDR (`fdrOverall`); header toggle Next 3\|5 + Avg FDR column; ב־Players האופק נשמר ב־`Dashboard` בין Attack / Set Pieces / Defending (session, ללא localStorage); palette `#15803D` / `#16A34A` / `#64748B` / `#DC2626` / `#991B1B` (1–5, easy→hard) |
 | Team accents | פס אנכי `TEAM_ACCENTS` ליד `teamShort` / שם קבוצה (Players + Teams) דרך `TeamAccentLabel` |
 | Metric tooltips | Radix Tooltip על כותרות מקוצרות ב־Player Data (Players + Teams, כל תתי־הטאבים); delay ~180ms; לא משפיע על sort/filter |
 | פילטר | אייקון tune → Radix Popover (slider + Top 10%/25%) |
@@ -499,10 +499,11 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.6.0**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.6.1**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.6.1 | Next 3\|5 tab persistence | הרמת `nextHorizon` ל־`Dashboard`; controlled props ב־`DataTable` דרך PlayerTables — הבחירה נשמרת בין Attack / Set Pieces / Defending בתוך הסשן (מתאפסת ב־refresh) |
 | v1.6.0 | Favorite Players | כוכב Lucide ליד שם שחקן (`teamId:playerId`); chip "Favorites" בפילטרים הגלובליים; סינון client-side לכל טאבי Players; מצב in-memory בלבד (מתאפס ב־refresh); ללא שינויי API/store |
 | v1.5.1 | Metric header tooltips | `METRIC_DESCRIPTIONS` ב־`lib/constants/metrics.ts`; Radix Tooltip על קיצורי עמודות ב־Player Data (Players + Teams, כל תתי־הטאבים); עיצוב כהה מינימליסטי, delay 180ms, בלי לשבור sort/filter |
 | v1.5.1 | Regression Lab (Coming Soon) | פריט Sidebar מתחת ל־Squad Planner (`TrendingUp`, disabled + pill) |
@@ -555,4 +556,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.6.0 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.6.1 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*

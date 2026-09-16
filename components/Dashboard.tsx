@@ -19,6 +19,7 @@ import {
 } from "@/components/teams/TeamTables";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ActiveColumnFilter } from "@/components/ui/data-table";
+import type { FixtureHorizon } from "@/components/ui/fixture-badges";
 import type { MetaResponse, Position, StatsResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ export function Dashboard() {
     () => new Set<string>()
   );
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [nextHorizon, setNextHorizon] = useState<FixtureHorizon>(3);
 
   const loadMeta = useCallback(async () => {
     const res = await fetch("/api/meta");
@@ -311,6 +313,8 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              nextHorizon={nextHorizon}
+              onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}
             />
           </TabsContent>
@@ -319,6 +323,8 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              nextHorizon={nextHorizon}
+              onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}
             />
           </TabsContent>
@@ -327,6 +333,8 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              nextHorizon={nextHorizon}
+              onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}
             />
           </TabsContent>

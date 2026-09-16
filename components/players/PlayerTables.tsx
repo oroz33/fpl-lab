@@ -12,6 +12,7 @@ import {
   averageOverallFdr,
   fixturesSortValue,
   getSyncedFixtureHorizon,
+  type FixtureHorizon,
 } from "@/components/ui/fixture-badges";
 import { TeamAccentLabel } from "@/components/ui/team-accent";
 import { cn } from "@/lib/utils";
@@ -165,6 +166,8 @@ function createDefendingCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
 
 type PlayerTableProps = FavoriteProps & {
   rows: PlayerRow[];
+  nextHorizon: FixtureHorizon;
+  onNextHorizonChange: (horizon: FixtureHorizon) => void;
   onFiltersChange?: (
     filters: import("@/components/ui/data-table").ActiveColumnFilter[]
   ) => void;
@@ -174,6 +177,8 @@ export function AttackTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  nextHorizon,
+  onNextHorizonChange,
   onFiltersChange,
 }: PlayerTableProps) {
   const columns = useMemo(
@@ -181,7 +186,13 @@ export function AttackTable({
     [favoritePlayerIds, onToggleFavorite]
   );
   return (
-    <DataTable columns={columns} rows={rows} onFiltersChange={onFiltersChange} />
+    <DataTable
+      columns={columns}
+      rows={rows}
+      horizon={nextHorizon}
+      onHorizonChange={onNextHorizonChange}
+      onFiltersChange={onFiltersChange}
+    />
   );
 }
 
@@ -189,6 +200,8 @@ export function SetPiecesTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  nextHorizon,
+  onNextHorizonChange,
   onFiltersChange,
 }: PlayerTableProps) {
   const columns = useMemo(
@@ -196,7 +209,13 @@ export function SetPiecesTable({
     [favoritePlayerIds, onToggleFavorite]
   );
   return (
-    <DataTable columns={columns} rows={rows} onFiltersChange={onFiltersChange} />
+    <DataTable
+      columns={columns}
+      rows={rows}
+      horizon={nextHorizon}
+      onHorizonChange={onNextHorizonChange}
+      onFiltersChange={onFiltersChange}
+    />
   );
 }
 
@@ -204,6 +223,8 @@ export function DefendingTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  nextHorizon,
+  onNextHorizonChange,
   onFiltersChange,
 }: PlayerTableProps) {
   const columns = useMemo(
@@ -211,6 +232,12 @@ export function DefendingTable({
     [favoritePlayerIds, onToggleFavorite]
   );
   return (
-    <DataTable columns={columns} rows={rows} onFiltersChange={onFiltersChange} />
+    <DataTable
+      columns={columns}
+      rows={rows}
+      horizon={nextHorizon}
+      onHorizonChange={onNextHorizonChange}
+      onFiltersChange={onFiltersChange}
+    />
   );
 }
