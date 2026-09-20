@@ -2,8 +2,8 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.6.1` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
-**עודכן לאחרונה:** Next 3|5 tab persistence · Favorite Players · Metric header tooltips · Regression Lab (Coming Soon) · Fixture Tracker · Avg FDR · Team accents · FDR palette
+**גרסה נוכחית:** `v1.7.0` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
+**עודכן לאחרונה:** Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Next 3|5 layout · Column filter precision · Favorite Players · Metric header tooltips · Fixture Tracker
 
 ---
 
@@ -45,6 +45,7 @@
 ### יכולות עיקריות
 
 - תצוגות **Players** (Attack / Set Pieces / Defending) ו־**Teams** (Defensive / Offensive)
+- **Δ xGI Variance** — עמודה ב־Attack: Actual Returns (G+A) − xGI; סף ±0.75 ל־UNDER/OVER/ALIGNED; צבע הפוך (ירוק=פוטנציאל, אדום=סיכון רגרסיה) + tooltip
 - **Fixture Tracker** (`/fixtures`) — מטריצת FDR לפי GW עד סוף העונה, presets Next 5/10/Full Season, Offensive|Defensive
 - **H2H Compare** (`/h2h`) — השוואת שני שחקני שדה (ללא GKP), רדאר אחוזונים (פוליגון) עם תוויות ערכים גולמיים, מטריצת מנצחים
 - פילטרים גלובליים: Gameweek, Position, Team, Search, **Favorites**
@@ -117,13 +118,14 @@ FPL/
 │   ├── Dashboard.tsx
 │   ├── filters/                    # GW, Position, Team, Search (+ Favorites chip ב־Dashboard)
 │   ├── upload/UploadPortal.tsx     # העלאה יחידה + batch + clear
-│   ├── players/PlayerTables.tsx    # + Star favorites · Compare → /h2h?a= · team accents
+│   ├── players/PlayerTables.tsx    # + Star favorites · Compare → /h2h?a= · Δ xGI · sticky Team
 │   ├── teams/TeamTables.tsx        # ΔG / ΔGC / ΔCS · team accents
+│   ├── analytics/                  # XGIVarianceBadge (signed Δ xGI + tooltip)
 │   ├── fixtures/FixtureTrackerView.tsx
 │   ├── h2h/                        # H2HCompareView, radar, matrix, slots…
 │   ├── layout/                     # AppShell, AppHeader, AppSidebar
 │   └── ui/
-│       ├── data-table.tsx          # מיון + פילטרים + percentile heatmap + Next 3|5 + metric header tooltips
+│       ├── data-table.tsx          # cumulative sticky · Next 3|5 · filters · heatmap · tooltips
 │       ├── fixture-badges.tsx      # FDR chips + Avg FDR + horizon sync
 │       ├── team-accent.tsx         # פס צבע מותג ליד שם קבוצה
 │       ├── tooltip.tsx             # Radix Tooltip (metric headers + FDR chips)
@@ -260,6 +262,7 @@ GW_n_Stats = Cumulative_GW_n − Cumulative_GW_(n−1)
 | xGI | xG + xA |
 | npxGI | expectedGoalsNonpenalty + xA |
 | GI | Goals + Assists |
+| Δ xGI | actualReturns (G+A) − xGI; ≤−0.75 UNDERPERFORMING · ≥+0.75 OVERPERFORMING · else ALIGNED |
 | KP | totalAttAssist |
 | BCC | bigChanceCreated |
 
@@ -317,10 +320,10 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 | כלל | פירוט |
 |-----|--------|
 | כותרת | `bg-primary`, uppercase, מיון asc/desc; hover על קיצורי מטריקות → tooltip כהה (`METRIC_DESCRIPTIONS`) |
-| Sticky | Player + Next fixtures (3\|5 toggle) (צל ימין); Avg FDR; כוכב Favorite משמאל לשם; אייקון Compare ב־hover → `/h2h?a={id}` |
-| מספריים | יישור ימין, JetBrains Mono + `tnum` |
-| Heatmap | דינמי לפי שורות מסוננות; **Top 2.5%** (`≥ P97.5`) = emerald; **Bottom 5%** (`≤ P5`) = rose רק כש־`p5 > 0` ויש שונות; Apps/Mins ללא heatmap |
-| FDR | Next chips use Overall FDR (`fdrOverall`); header toggle Next 3\|5 + Avg FDR column; ב־Players האופק נשמר ב־`Dashboard` בין Attack / Set Pieces / Defending (session, ללא localStorage); palette `#15803D` / `#16A34A` / `#64748B` / `#DC2626` / `#991B1B` (1–5, easy→hard) |
+| Sticky | **Player → Team → Next → Avg FDR** (cumulative `left`, צל על העמודה האחרונה); עמודות שגוללות מתחת ל־sticky מוסתרות כדי למנוע אייקון פילטר יתום; כוכב Favorite · Compare ב־hover → `/h2h?a={id}` |
+| מספריים | יישור ממורכז, JetBrains Mono + `tnum`; Δ xGI עם סימן מפורש (`+`/`−`) וצבע הפוך (emerald under / rose over) |
+| Heatmap | דינמי לפי שורות מסוננות; **Top 2.5%** (`≥ P97.5`) = emerald; **Bottom 5%** (`≤ P5`) = rose רק כש־`p5 > 0` ויש שונות; Apps/Mins/Δ xGI ללא heatmap |
+| FDR | Next chips use Overall FDR (`fdrOverall`); header toggle Next 3\|5 (רוחב sticky 168/320) + Avg FDR; ב־Players האופק נשמר ב־`Dashboard` בין טאבים (session); palette `#15803D` / `#16A34A` / `#64748B` / `#DC2626` / `#991B1B` (1–5, easy→hard) |
 | Team accents | פס אנכי `TEAM_ACCENTS` ליד `teamShort` / שם קבוצה (Players + Teams) דרך `TeamAccentLabel` |
 | Metric tooltips | Radix Tooltip על כותרות מקוצרות ב־Player Data (Players + Teams, כל תתי־הטאבים); delay ~180ms; לא משפיע על sort/filter |
 | פילטר | אייקון tune → Radix Popover (slider + Top 10%/25%) |
@@ -499,10 +502,13 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.6.1**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.7.0**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.7.0 | Δ xGI Variance | עמודה `Δ xGI` ב־Attack: `actualReturns − xGI`, סף ±0.75 (`UNDERPERFORMING` / `OVERPERFORMING` / `ALIGNED`); טקסט חתום emerald/rose + tooltip; שדות ב־`PlayerRow` + חישוב ב־`lib/delta/engine.ts` |
+| v1.7.0 | Sticky Player Data layout | סדר sticky מצטבר Player → Team → Next → Avg FDR; רוחבי Next 3\|5; הסתרת עמודות שגוללות מתחת לקצה ה־sticky (בלי פילטר Apps יתום) |
+| v1.6.2 | Column filter precision | פילטר עמודות לפי `digits`: שלמים (`Apps`/`KP`/`Shots` וכו׳) ב־step 1 ותצוגה בלי עשרונים; עשרוניים (`xG`/`xA`/`xGI`/`npxGI`/`DC/G`) נשארים ב־2 ספרות |
 | v1.6.1 | Next 3\|5 tab persistence | הרמת `nextHorizon` ל־`Dashboard`; controlled props ב־`DataTable` דרך PlayerTables — הבחירה נשמרת בין Attack / Set Pieces / Defending בתוך הסשן (מתאפסת ב־refresh) |
 | v1.6.0 | Favorite Players | כוכב Lucide ליד שם שחקן (`teamId:playerId`); chip "Favorites" בפילטרים הגלובליים; סינון client-side לכל טאבי Players; מצב in-memory בלבד (מתאפס ב־refresh); ללא שינויי API/store |
 | v1.5.1 | Metric header tooltips | `METRIC_DESCRIPTIONS` ב־`lib/constants/metrics.ts`; Radix Tooltip על קיצורי עמודות ב־Player Data (Players + Teams, כל תתי־הטאבים); עיצוב כהה מינימליסטי, delay 180ms, בלי לשבור sort/filter |
@@ -556,4 +562,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.6.1 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.7.0 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*

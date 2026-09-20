@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { GitCompareArrows, Star } from "lucide-react";
 import type { PlayerRow } from "@/lib/types";
+import { XGIVarianceBadge } from "@/components/analytics/xgi-variance-badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { PositionBadge } from "@/components/ui/position-badge";
 import {
@@ -26,6 +27,7 @@ const fixturesCol: ColumnDef<PlayerRow> = {
   key: "nextFixtures",
   label: "Next",
   sortable: false,
+  sticky: true,
   render: (r) => <FixturesCell fixtures={r.nextFixtures} />,
   getValue: (r) => fixturesSortValue(r.nextFixtures),
 };
@@ -33,6 +35,8 @@ const fixturesCol: ColumnDef<PlayerRow> = {
 const avgFdrCol: ColumnDef<PlayerRow> = {
   key: "avgFdr",
   label: "Avg FDR",
+  sticky: true,
+  stickyWidth: 88,
   numeric: true,
   digits: 2,
   heatmap: false,
@@ -93,16 +97,18 @@ function createBaseCols({
       },
       getValue: (r) => r.name,
     },
-    fixturesCol,
-    avgFdrCol,
     {
       key: "teamShort",
       label: "Team",
+      sticky: true,
+      stickyWidth: 88,
       getValue: (r) => r.teamShort,
       render: (r) => (
         <TeamAccentLabel label={r.teamShort} teamId={r.teamId} />
       ),
     },
+    fixturesCol,
+    avgFdrCol,
     { key: "apps", label: "Apps", numeric: true, digits: 0, heatmap: false },
     { key: "mins", label: "Mins", numeric: true, digits: 0, heatmap: false },
   ];
@@ -115,14 +121,31 @@ function createAttackCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
     { key: "shotsOnTarget", label: "SoT", numeric: true, digits: 0 },
     { key: "shotsInsideBox", label: "SIB", numeric: true, digits: 0 },
     { key: "bigChances", label: "BC", numeric: true, digits: 0 },
-    { key: "xG", label: "xG", numeric: true },
+    { key: "xG", label: "xG", numeric: true, digits: 2 },
     { key: "goals", label: "G", numeric: true, digits: 0 },
-    { key: "xGI", label: "xGI", numeric: true },
-    { key: "npxGI", label: "npxGI", numeric: true },
+    { key: "xGI", label: "xGI", numeric: true, digits: 2 },
+    { key: "npxGI", label: "npxGI", numeric: true, digits: 2 },
     { key: "gi", label: "GI", numeric: true, digits: 0 },
+    {
+      key: "xGiVariance",
+      label: "Δ xGI",
+      numeric: true,
+      digits: 2,
+      heatmap: false,
+      getValue: (r) => r.xGiVariance ?? r.gi - r.xGI,
+      render: (r) => (
+        <XGIVarianceBadge
+          variance={r.xGiVariance}
+          actualReturns={r.actualReturns}
+          gi={r.gi}
+          xGI={r.xGI}
+          status={r.regressionStatus}
+        />
+      ),
+    },
     { key: "keyPasses", label: "KP", numeric: true, digits: 0 },
     { key: "bigChancesCreated", label: "BCC", numeric: true, digits: 0 },
-    { key: "xA", label: "xA", numeric: true },
+    { key: "xA", label: "xA", numeric: true, digits: 2 },
     { key: "assists", label: "A", numeric: true, digits: 0 },
   ];
 }
@@ -149,6 +172,7 @@ function createDefendingCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
       key: "dcPerGame",
       label: "DC/G",
       numeric: true,
+      digits: 2,
       getValue: (r) => r.dcPerGame,
       render: (r) => (r.dcPerGame === null ? "—" : r.dcPerGame.toFixed(2)),
     },

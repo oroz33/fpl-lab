@@ -100,9 +100,10 @@ export function FixtureBadges({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-hidden">
         {visible.map((fixture) => {
           const label = fixtureLabel(fixture);
+          const compact = horizon === 5;
           return (
             <Tooltip
               key={`${fixture.event}-${fixture.opponentShortName}-${fixture.isHome}`}
@@ -110,7 +111,10 @@ export function FixtureBadges({
               <TooltipTrigger asChild>
                 <span
                   className={cn(
-                    "inline-flex cursor-default items-center justify-center rounded border border-black/10 px-1.5 py-0.5 font-data-mono text-[9.5px] font-bold tracking-tight tabular-nums whitespace-nowrap",
+                    "inline-flex shrink-0 cursor-default items-center justify-center rounded border border-black/10 font-data-mono font-bold tracking-tight tabular-nums whitespace-nowrap",
+                    compact
+                      ? "px-1 py-0.5 text-[9px]"
+                      : "px-1.5 py-0.5 text-[9.5px]",
                     FDR_COLORS[fixture.fdrOverall] ?? FDR_COLORS[3]
                   )}
                 >
@@ -133,7 +137,11 @@ export function FixtureBadges({
 
 export function FixturesCell({ fixtures }: { fixtures: NextFixture[] | undefined }) {
   const { horizon } = useFixtureHorizon();
-  return <FixtureBadges fixtures={fixtures ?? []} horizon={horizon} />;
+  return (
+    <div className="w-full max-w-full overflow-hidden">
+      <FixtureBadges fixtures={fixtures ?? []} horizon={horizon} />
+    </div>
+  );
 }
 
 export function AvgFdrCell({ fixtures }: { fixtures: NextFixture[] | undefined }) {

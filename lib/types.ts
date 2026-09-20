@@ -55,6 +55,11 @@ export interface NextFixture {
   fdrOverall: FdrScore;
 }
 
+export type RegressionStatus =
+  | "UNDERPERFORMING"
+  | "OVERPERFORMING"
+  | "ALIGNED";
+
 export interface PlayerRow {
   id: string;
   name: string;
@@ -73,6 +78,11 @@ export interface PlayerRow {
   xGI: number;
   npxGI: number;
   gi: number;
+  /** Goals + assists (same as gi); used for xGI variance tooltips. */
+  actualReturns: number;
+  /** actualReturns − xGI, rounded to 2 dp. */
+  xGiVariance: number;
+  regressionStatus: RegressionStatus;
   keyPasses: number;
   bigChancesCreated: number;
   xA: number;

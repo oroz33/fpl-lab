@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, round } from "@/lib/utils";
 
 function percentileThreshold(
   values: number[],
@@ -38,6 +38,10 @@ function percentileThreshold(
   return sorted[topIndex] ?? sorted[index] ?? 0;
 }
 
+function formatThreshold(value: number, digits: number): string {
+  return value.toFixed(digits);
+}
+
 export function ColumnFilterPopover({
   label,
   values,
@@ -46,6 +50,7 @@ export function ColumnFilterPopover({
   onReset,
   active,
   lowerIsBetter = false,
+  digits = 2,
 }: {
   label: string;
   values: number[];
@@ -54,37 +59,50 @@ export function ColumnFilterPopover({
   onReset: () => void;
   active?: boolean;
   lowerIsBetter?: boolean;
+  digits?: number;
 }) {
   const op = lowerIsBetter ? "≤" : "≥";
+  const step = digits === 0 ? 1 : 10 ** -digits;
   const [open, setOpen] = useState(false);
   const max = useMemo(() => {
     if (!values.length) return 1;
-    return Math.max(...values, 0.01);
-  }, [values]);
+    const raw = Math.max(...values, digits === 0 ? 1 : 0.01);
+    return digits === 0 ? Math.ceil(raw) : raw;
+  }, [values, digits]);
 
   const top10 = useMemo(
-    () => percentileThreshold(values, 10, lowerIsBetter),
-    [values, lowerIsBetter]
+    () => round(percentileThreshold(values, 10, lowerIsBetter), digits),
+    [values, lowerIsBetter, digits]
   );
   const top25 = useMemo(
-    () => percentileThreshold(values, 25, lowerIsBetter),
-    [values, lowerIsBetter]
+    () => round(percentileThreshold(values, 25, lowerIsBetter), digits),
+    [values, lowerIsBetter, digits]
   );
 
   const appliedNum =
-    applied && Number.isFinite(Number(applied)) ? Number(applied) : null;
+    applied && Number.isFinite(Number(applied))
+      ? round(Number(applied), digits)
+      : null;
   const defaultDraft = lowerIsBetter ? max : 0;
   const initial = appliedNum ?? defaultDraft;
   const [draft, setDraft] = useState(initial);
   const [preset, setPreset] = useState<string | null>(
-    appliedNum != null ? `${op} ${appliedNum.toFixed(2)}` : null
+    appliedNum != null ? `${op} ${formatThreshold(appliedNum, digits)}` : null
   );
+
+  function setDraftRounded(value: number) {
+    setDraft(round(value, digits));
+  }
 
   function handleOpenChange(next: boolean) {
     if (next) {
       const nextInitial = appliedNum ?? (lowerIsBetter ? max : 0);
       setDraft(nextInitial);
-      setPreset(appliedNum != null ? `${op} ${appliedNum.toFixed(2)}` : null);
+      setPreset(
+        appliedNum != null
+          ? `${op} ${formatThreshold(appliedNum, digits)}`
+          : null
+      );
     }
     setOpen(next);
   }
@@ -127,17 +145,17 @@ export function ColumnFilterPopover({
           <div className="flex items-center justify-between text-[10px] font-medium text-on-surface-variant">
             <span>THRESHOLD</span>
             <span className="font-data-mono font-bold tabular-nums text-primary">
-              {op} {draft.toFixed(2)}
+              {op} {formatThreshold(draft, digits)}
             </span>
           </div>
           <input
             type="range"
             min={0}
             max={max}
-            step={max > 10 ? 1 : 0.01}
+            step={step}
             value={Math.min(draft, max)}
             onChange={(e) => {
-              setDraft(Number(e.target.value));
+              setDraftRounded(Number(e.target.value));
               setPreset(null);
             }}
             className="h-1.5 w-full cursor-pointer accent-primary"
@@ -182,12 +200,12 @@ export function ColumnFilterPopover({
                   : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
               )}
               onClick={() => {
-                const v = Number(draft.toFixed(2));
+                const v = round(draft, digits);
                 setDraft(v);
-                setPreset(`${op} ${v.toFixed(2)}`);
+                setPreset(`${op} ${formatThreshold(v, digits)}`);
               }}
             >
-              {op} {draft.toFixed(2)}
+              {op} {formatThreshold(draft, digits)}
             </button>
           </div>
         </div>
@@ -209,7 +227,7 @@ export function ColumnFilterPopover({
             type="button"
             className="rounded bg-primary px-space-md py-1 text-[11px] font-semibold text-on-primary transition-colors hover:bg-primary-container"
             onClick={() => {
-              onApply(draft);
+              onApply(round(draft, digits));
               setOpen(false);
             }}
           >

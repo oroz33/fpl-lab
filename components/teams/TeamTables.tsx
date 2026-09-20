@@ -28,6 +28,7 @@ const fixturesCol: ColumnDef<TeamRow> = {
   key: "nextFixtures",
   label: "Next",
   sortable: false,
+  sticky: true,
   render: (r) => <FixturesCell fixtures={r.nextFixtures} />,
   getValue: (r) => fixturesSortValue(r.nextFixtures),
 };
@@ -35,6 +36,8 @@ const fixturesCol: ColumnDef<TeamRow> = {
 const avgFdrCol: ColumnDef<TeamRow> = {
   key: "avgFdr",
   label: "Avg FDR",
+  sticky: true,
+  stickyWidth: 88,
   numeric: true,
   digits: 2,
   heatmap: false,

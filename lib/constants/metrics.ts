@@ -11,6 +11,7 @@ export const METRIC_DESCRIPTIONS: Record<string, string> = {
   G: "Goals",
   A: "Assists",
   GI: "Goals Involvement",
+  "Δ xGI": "Actual Returns (G+A) minus xGI; ≤−0.75 under / ≥+0.75 over",
   KP: "Key Passes",
   BCC: "Big Chance Created",
   // Defending

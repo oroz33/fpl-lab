@@ -147,6 +147,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

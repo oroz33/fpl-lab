@@ -242,11 +242,21 @@ export function aggregateRange(
     .map((p) => {
       const s = p.stats;
       const apps = s.apps ?? 0;
-      const xG = s.xG ?? 0;
-      const xA = s.xA ?? 0;
-      const npxG = s.npxG ?? xG;
-      const goals = s.goals ?? 0;
-      const assists = s.assists ?? 0;
+      const goals = Number(s.goals ?? s.g ?? 0);
+      const assists = Number(s.assists ?? s.goalAssist ?? s.a ?? 0);
+      const xG = Number(s.xG ?? s.expectedGoals ?? 0);
+      const xA = Number(s.xA ?? s.expectedAssists ?? 0);
+      const npxG = Number(s.npxG ?? xG);
+      const actualReturns = goals + assists;
+      const xGI = round(xG + xA, 2);
+      const rawVar = actualReturns - xGI;
+      const xGiVariance = Number.isNaN(rawVar) ? 0 : round(rawVar, 2);
+      const regressionStatus =
+        xGiVariance <= -0.75
+          ? ("UNDERPERFORMING" as const)
+          : xGiVariance >= 0.75
+            ? ("OVERPERFORMING" as const)
+            : ("ALIGNED" as const);
       const position = p.meta.position;
       const saves = position === "GKP" ? s.saves ?? 0 : null;
       const dcPerGame = computeDcPerGame(
@@ -274,9 +284,12 @@ export function aggregateRange(
         bigChances: s.bigChances ?? 0,
         xG: round(xG, 2),
         goals,
-        xGI: round(xG + xA, 2),
+        xGI,
         npxGI: round(npxG + xA, 2),
-        gi: goals + assists,
+        gi: actualReturns,
+        actualReturns,
+        xGiVariance,
+        regressionStatus,
         keyPasses: s.keyPasses ?? 0,
         bigChancesCreated: s.bigChancesCreated ?? 0,
         xA: round(xA, 2),

@@ -24,7 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { metricDescription } from "@/lib/constants/metrics";
-import { cn, formatNum } from "@/lib/utils";
+import { cn, formatNum, round } from "@/lib/utils";
 
 export type ColumnDef<T> = {
   key: string;
@@ -68,15 +68,51 @@ function columnAlign<T>(col: ColumnDef<T>): "left" | "right" | "center" {
   return "left";
 }
 
-function isIdentityCol<T>(col: ColumnDef<T>): boolean {
-  return Boolean(col.sticky) || col.key === "name";
-}
-
 function isFixturesCol<T>(col: ColumnDef<T>): boolean {
   return col.key === "nextFixtures";
 }
 
+function isStickyCol<T>(col: ColumnDef<T>): boolean {
+  return Boolean(col.sticky) || col.key === "name" || isFixturesCol(col);
+}
+
+function isAvgFdrCol<T>(col: ColumnDef<T>): boolean {
+  return col.key === "avgFdr";
+}
+
 const DEFAULT_IDENTITY_WIDTH = 195;
+const FIXTURES_WIDTH_3 = 168;
+const FIXTURES_WIDTH_5 = 320;
+
+type StickyLayout = {
+  left: number;
+  width: number;
+  isLast: boolean;
+};
+
+function buildStickyLayout<T>(
+  columns: ColumnDef<T>[],
+  horizon: FixtureHorizon
+): Map<string, StickyLayout> {
+  const fixturesWidth = horizon === 5 ? FIXTURES_WIDTH_5 : FIXTURES_WIDTH_3;
+  const layout = new Map<string, StickyLayout>();
+  let left = 0;
+  const stickyCols = columns.filter(isStickyCol);
+
+  stickyCols.forEach((col, index) => {
+    const width = isFixturesCol(col)
+      ? fixturesWidth
+      : (col.stickyWidth ?? DEFAULT_IDENTITY_WIDTH);
+    layout.set(col.key, {
+      left,
+      width,
+      isLast: index === stickyCols.length - 1,
+    });
+    left += width;
+  });
+
+  return layout;
+}
 
 function rowPassesFilters<T>(
   row: T,
@@ -260,27 +296,56 @@ export function DataTable<T extends { id: string }>({
     });
   }
 
-  function stickyLeft(col: ColumnDef<T>): string | undefined {
-    if (isIdentityCol(col)) return "0";
-    if (isFixturesCol(col)) return `${identityWidth}px`;
-    if (col.stickyOffset != null) return `${col.stickyOffset}px`;
-    return undefined;
-  }
+  const stickyLayout = useMemo(
+    () => buildStickyLayout(columns, horizon),
+    [columns, horizon]
+  );
 
-  const identityCol = columns.find((c) => isIdentityCol(c));
-  const identityWidth = identityCol?.stickyWidth ?? DEFAULT_IDENTITY_WIDTH;
-  const identityMaxWidth = identityWidth + 5;
+  /** Hide non-sticky columns that slide under the sticky edge (avoids orphan filter icons). */
+  useEffect(() => {
+    const scroller = document.querySelector(
+      "[data-table-scroll]"
+    ) as HTMLElement | null;
+    if (!scroller) return;
 
-  const fixturesWidthClass =
-    horizon === 5
-      ? "min-w-[245px] max-w-[250px]"
-      : "min-w-[155px] max-w-[155px]";
+    const lastStickyKey = [...stickyLayout.entries()].find(([, v]) => v.isLast)?.[0];
+
+    const syncCoveredColumns = () => {
+      const stickyEndEl = lastStickyKey
+        ? (scroller.querySelector(
+            `th[data-col-key="${lastStickyKey}"]`
+          ) as HTMLElement | null)
+        : null;
+      const stickyEnd = stickyEndEl?.getBoundingClientRect().right ?? 0;
+
+      scroller.querySelectorAll<HTMLElement>("[data-col-key]").forEach((el) => {
+        const key = el.dataset.colKey;
+        if (!key || stickyLayout.has(key)) {
+          el.style.visibility = "";
+          return;
+        }
+        const r = el.getBoundingClientRect();
+        el.style.visibility = r.left < stickyEnd - 1 ? "hidden" : "";
+      });
+    };
+
+    syncCoveredColumns();
+    scroller.addEventListener("scroll", syncCoveredColumns, { passive: true });
+    window.addEventListener("resize", syncCoveredColumns);
+    return () => {
+      scroller.removeEventListener("scroll", syncCoveredColumns);
+      window.removeEventListener("resize", syncCoveredColumns);
+      scroller.querySelectorAll<HTMLElement>("[data-col-key]").forEach((el) => {
+        el.style.visibility = "";
+      });
+    };
+  }, [stickyLayout, horizon, columns, rows]);
 
   return (
     <FixtureHorizonProvider horizon={horizon} setHorizon={setHorizon}>
     <TooltipProvider delayDuration={180}>
     <div className="relative overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0_4px_20px_rgba(11,28,48,0.06)]">
-      <div className="relative w-full overflow-x-auto">
+      <div className="relative w-full overflow-x-auto" data-table-scroll>
         <table className="w-full border-collapse text-left select-text">
           <thead>
             <tr className="h-table-row-h bg-primary text-[11px] font-semibold tracking-[0.02em] text-on-primary uppercase">
@@ -288,9 +353,9 @@ export function DataTable<T extends { id: string }>({
                 const active = sort?.key === col.key;
                 const align = columnAlign(col);
                 const numeric = Boolean(col.numeric);
-                const identity = isIdentityCol(col);
                 const fixtures = isFixturesCol(col);
-                const left = stickyLeft(col);
+                const sticky = stickyLayout.get(col.key);
+                const avgFdr = isAvgFdrCol(col);
                 const filterable = col.filterable !== false && numeric;
                 const description = metricDescription(col.label);
                 const labelClassName = cn(
@@ -301,6 +366,7 @@ export function DataTable<T extends { id: string }>({
                 return (
                   <th
                     key={col.key}
+                    data-col-key={col.key}
                     scope="col"
                     title={
                       fixtures
@@ -309,30 +375,28 @@ export function DataTable<T extends { id: string }>({
                     }
                     className={cn(
                       "whitespace-nowrap px-space-sm py-cell-py",
-                      identity &&
-                        "sticky left-0 z-30 bg-primary px-space-md shadow-[4px_0_10px_-2px_rgba(0,0,0,0.3)]",
-                      fixtures &&
+                      sticky &&
                         cn(
-                          "sticky z-30 bg-primary px-space-md shadow-[6px_0_12px_-3px_rgba(0,0,0,0.35)]",
-                          fixturesWidthClass
+                          "sticky bg-primary px-space-md",
+                          sticky.isLast ? "z-[32]" : "z-30",
+                          fixtures && "overflow-hidden",
+                          sticky.isLast &&
+                            "shadow-[6px_0_12px_-3px_rgba(0,0,0,0.35)]"
                         ),
-                      numeric && "min-w-[55px] text-center",
+                      numeric && !avgFdr && "min-w-[55px] text-center",
+                      avgFdr && "w-[84px] min-w-[84px] shrink-0 text-center",
                       filters[col.key] && "bg-primary-container text-tertiary-fixed"
                     )}
-                    style={{
-                      ...(identity
+                    style={
+                      sticky
                         ? {
-                            minWidth: identityWidth,
-                            maxWidth: identityMaxWidth,
-                            left: 0,
+                            left: sticky.left,
+                            minWidth: sticky.width,
+                            maxWidth: sticky.width,
+                            width: sticky.width,
                           }
-                        : null),
-                      ...(fixtures
-                        ? { left: identityWidth }
-                        : left && !identity
-                          ? { left }
-                          : null),
-                    }}
+                        : undefined
+                    }
                     onClick={() =>
                       !fixtures && col.sortable !== false && toggleSort(col.key)
                     }
@@ -418,13 +482,13 @@ export function DataTable<T extends { id: string }>({
                               applied={filters[col.key]}
                               active={Boolean(filters[col.key])}
                               lowerIsBetter={Boolean(col.lowerIsBetter)}
+                              digits={col.digits ?? 2}
                               onApply={(threshold) => {
+                                const precision = col.digits ?? 2;
                                 setFilters((prev) => ({
                                   ...prev,
                                   [col.key]: String(
-                                    Number.isInteger(threshold)
-                                      ? threshold
-                                      : Number(threshold.toFixed(2))
+                                    round(threshold, precision)
                                   ),
                                 }));
                               }}
@@ -469,8 +533,8 @@ export function DataTable<T extends { id: string }>({
                     else content = raw === null || raw === undefined ? "—" : String(raw);
 
                     const numeric = Boolean(col.numeric);
-                    const identity = isIdentityCol(col);
-                    const fixtures = isFixturesCol(col);
+                    const sticky = stickyLayout.get(col.key);
+                    const avgFdr = isAvgFdrCol(col);
                     const heat =
                       numeric && col.heatmap !== false && typeof raw === "number"
                         ? heatmapClassForValue(raw, columnHeatThresholds.get(col.key))
@@ -479,29 +543,32 @@ export function DataTable<T extends { id: string }>({
                     return (
                       <td
                         key={col.key}
+                        data-col-key={col.key}
                         className={cn(
                           "whitespace-nowrap px-space-sm py-cell-py text-on-surface",
-                          identity &&
-                            "sticky left-0 z-20 bg-surface-container-lowest px-space-md shadow-[4px_0_10px_-2px_rgba(0,0,0,0.06)] group-hover:bg-surface-container-low",
-                          fixtures &&
+                          sticky &&
                             cn(
-                              "sticky z-20 bg-surface-container-lowest px-space-md shadow-[6px_0_12px_-3px_rgba(0,0,0,0.08)] group-hover:bg-surface-container-low",
-                              fixturesWidthClass
+                              "sticky bg-surface-container-lowest px-space-md group-hover:bg-surface-container-low",
+                              sticky.isLast ? "z-[22]" : "z-20",
+                              isFixturesCol(col) && "overflow-hidden",
+                              sticky.isLast &&
+                                "shadow-[6px_0_12px_-3px_rgba(0,0,0,0.08)]"
                             ),
                           numeric && "text-center tabular-nums",
-                          !numeric && !identity && "font-sans text-[12px] text-on-surface-variant",
+                          avgFdr && "w-[84px] min-w-[84px] shrink-0",
+                          !numeric && !sticky && "font-sans text-[12px] text-on-surface-variant",
                           heat
                         )}
-                        style={{
-                          ...(identity
+                        style={
+                          sticky
                             ? {
-                                minWidth: identityWidth,
-                                maxWidth: identityMaxWidth,
-                                left: 0,
+                                left: sticky.left,
+                                minWidth: sticky.width,
+                                maxWidth: sticky.width,
+                                width: sticky.width,
                               }
-                            : null),
-                          ...(fixtures ? { left: identityWidth } : null),
-                        }}
+                            : undefined
+                        }
                       >
                         {content}
                       </td>
