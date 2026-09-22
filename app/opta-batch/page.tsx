@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -48,6 +49,9 @@ async function openAllUrls(urls: string[]): Promise<number> {
 }
 
 export default function OptaBatchPage() {
+  const router = useRouter();
+  const [writeProtected, setWriteProtected] = useState(true);
+  const [gateChecked, setGateChecked] = useState(false);
   const [config, setConfig] = useState<TeamsConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +70,29 @@ export default function OptaBatchPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    fetch("/api/meta")
+      .then((r) => r.json())
+      .then((data: { writeProtected?: boolean }) => {
+        if (cancelled) return;
+        const protected_ = Boolean(data.writeProtected);
+        setWriteProtected(protected_);
+        setGateChecked(true);
+        if (protected_) router.replace("/");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setWriteProtected(true);
+        setGateChecked(true);
+        router.replace("/");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (!gateChecked || writeProtected) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -90,7 +117,7 @@ export default function OptaBatchPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [gateChecked, writeProtected]);
 
   const rows = useMemo(() => {
     if (!config) return [];
@@ -151,6 +178,10 @@ export default function OptaBatchPage() {
       showToast(`Batch URLs compiled (${urls.length})`);
     }
   }, [rows, showToast]);
+
+  if (!gateChecked || writeProtected) {
+    return null;
+  }
 
   return (
     <div className="flex w-full flex-col">
