@@ -1,44 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSeeded, getStorageMode } from "@/lib/store/db";
+import { ensureSeeded } from "@/lib/store/db";
 import { aggregateRange, getMetaFromSnapshots } from "@/lib/delta/engine";
 import { computeNextFixtures, loadTournamentSchedule } from "@/lib/fdr/engine";
 import type { Position, StatsResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-function snapshotProbe(
-  snapshots: {
-    throughGameweek?: unknown;
-    shortName?: string;
-    players?: unknown[];
-    seasonStatsRaw?: unknown;
-    expectedGoalsRaw?: unknown;
-    teamName?: string;
-  }[]
-) {
-  const gws = snapshots.map((s) => s.throughGameweek);
-  const playerCounts = snapshots.map((s) =>
-    Array.isArray(s.players) ? s.players.length : -1
-  );
-  const unk = snapshots.filter((s) => !s.shortName || s.shortName === "UNK").length;
-  return {
-    count: snapshots.length,
-    gws,
-    gwTypes: gws.map((g) => (g === null ? "null" : typeof g)),
-    playerCounts,
-    emptyPlayerSnapshots: playerCounts.filter((n) => n === 0).length,
-    missingPlayerField: playerCounts.filter((n) => n < 0).length,
-    unkShortName: unk,
-    withSeasonRaw: snapshots.filter((s) => s.seasonStatsRaw != null).length,
-    withXgRaw: snapshots.filter((s) => s.expectedGoalsRaw != null).length,
-    sample: snapshots.slice(0, 3).map((s) => ({
-      team: s.teamName,
-      gw: s.throughGameweek,
-      short: s.shortName,
-      players: Array.isArray(s.players) ? s.players.length : null,
-    })),
-  };
-}
 
 export async function GET(req: NextRequest) {
   const store = await ensureSeeded();
@@ -61,35 +27,6 @@ export async function GET(req: NextRequest) {
     rangeFrom,
     rangeTo
   );
-
-  // #region agent log
-  const probe = snapshotProbe(store.snapshots);
-  const debugPayload = {
-    sessionId: "277348",
-    runId: "post-fix",
-    hypothesisId: "A,B,C,D,E",
-    location: "app/api/stats/route.ts:GET",
-    message: "stats aggregate probe",
-    data: {
-      storageMode: getStorageMode(),
-      fromGw: rangeFrom,
-      toGw: rangeTo,
-      probe,
-      aggregatePlayers: players.length,
-      aggregateTeams: teams.length,
-      baselineNote: baselineNote ?? null,
-    },
-    timestamp: Date.now(),
-  };
-  fetch("http://127.0.0.1:7511/ingest/c5e4f916-7c09-4e65-9837-7460f44881ef", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "277348",
-    },
-    body: JSON.stringify(debugPayload),
-  }).catch(() => {});
-  // #endregion
 
   const schedule = await loadTournamentSchedule();
   const nextByTeam = computeNextFixtures(store.snapshots, schedule, 5);
@@ -133,7 +70,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const body: StatsResponse & { _debug?: unknown } = {
+  const body: StatsResponse = {
     players: filteredPlayers,
     teams: filteredTeams,
     meta: {
@@ -142,10 +79,6 @@ export async function GET(req: NextRequest) {
       baselineNote,
     },
   };
-
-  if (searchParams.get("debug") === "1") {
-    body._debug = debugPayload.data;
-  }
 
   return NextResponse.json(body);
 }
