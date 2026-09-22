@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isWriteProtected } from "@/lib/auth/admin";
-import { ensureSeeded } from "@/lib/store/db";
+import { ensureSeeded, getStorageMode } from "@/lib/store/db";
 import { getMetaFromSnapshots } from "@/lib/delta/engine";
 import type { MetaResponse } from "@/lib/types";
 
@@ -16,6 +16,7 @@ export async function GET() {
     snapshotCount: store.snapshots.length,
     seeded: store.seeded,
     writeProtected: isWriteProtected(),
+    storageMode: getStorageMode(),
   };
   return NextResponse.json(body);
 }

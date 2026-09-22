@@ -94,24 +94,24 @@ export function buildTeamDeltas(snapshots: CumulativeSnapshot[]): WeekDelta[] {
     if (!prev) {
       // Baseline block: attribute entire cumulative to GW1..throughGameweek
       gwStart = 1;
-      gwEnd = curr.throughGameweek;
+      gwEnd = Number(curr.throughGameweek) || 3;
       teamStats = { ...emptyTeam(), ...curr.teamStats };
-      for (const p of curr.players) {
+      for (const p of curr.players ?? []) {
         players.set(p.id, { meta: p, stats: { ...emptyStats(), ...p.stats } });
       }
     } else {
-      gwStart = prev.throughGameweek + 1;
-      gwEnd = curr.throughGameweek;
-      teamStats = subtractTeam(curr.teamStats, prev.teamStats);
+      gwStart = (Number(prev.throughGameweek) || 0) + 1;
+      gwEnd = Number(curr.throughGameweek) || gwStart;
+      teamStats = subtractTeam(curr.teamStats ?? {}, prev.teamStats ?? {});
 
-      const prevMap = new Map(prev.players.map((p) => [p.id, p]));
+      const prevMap = new Map((prev.players ?? []).map((p) => [p.id, p]));
       const ids = new Set([
-        ...curr.players.map((p) => p.id),
-        ...prev.players.map((p) => p.id),
+        ...(curr.players ?? []).map((p) => p.id),
+        ...(prev.players ?? []).map((p) => p.id),
       ]);
 
       for (const id of ids) {
-        const c = curr.players.find((p) => p.id === id);
+        const c = (curr.players ?? []).find((p) => p.id === id);
         const p = prevMap.get(id);
         const meta = c ?? p!;
         const stats = subtractStats(
@@ -346,7 +346,10 @@ export function getMetaFromSnapshots(snapshots: CumulativeSnapshot[]) {
   if (snapshots.length === 0) {
     return { minGameweek: 1, maxGameweek: 3, teams: [] as { id: string; name: string; shortName: string }[] };
   }
-  const maxGameweek = Math.max(...snapshots.map((s) => s.throughGameweek), 3);
+  const gws = snapshots
+    .map((s) => s.throughGameweek)
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 38);
+  const maxGameweek = gws.length > 0 ? Math.max(...gws) : 3;
   const teamMap = new Map<string, { id: string; name: string; shortName: string }>();
   for (const s of snapshots) {
     teamMap.set(s.teamId, { id: s.teamId, name: s.teamName, shortName: s.shortName });

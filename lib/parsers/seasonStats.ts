@@ -1,4 +1,5 @@
 import type { ParsedPlayer, ParsedTeam, StatMap } from "@/lib/types";
+import { resolveTeamIdentity } from "@/lib/constants/teams";
 import { displayName, mapPlayerPosition } from "@/lib/mapping/positions";
 
 function parseNumber(value: unknown): number {
@@ -100,10 +101,16 @@ export function parseSeasonStats(raw: unknown): {
         Object.keys(p.stats).length > 0
     );
 
+  const identity = resolveTeamIdentity({
+    teamId: contestant.id,
+    name: contestant.name,
+    shortName: contestant.optaShortName || contestant.optaSymId,
+  });
+
   const team: ParsedTeam = {
-    id: contestant.id ?? "unknown",
-    name: contestant.name ?? "Unknown Team",
-    shortName: contestant.optaShortName || contestant.optaSymId || "UNK",
+    id: identity.teamId,
+    name: identity.name,
+    shortName: identity.shortName,
     stats: teamStats,
   };
 

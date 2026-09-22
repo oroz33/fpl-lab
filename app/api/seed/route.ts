@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import { assertAdmin } from "@/lib/auth/admin";
-import { buildSnapshotFromRaw, upsertSnapshot, writeStore, readStore } from "@/lib/store/db";
+import { seedManCityBaseline } from "@/lib/store/db";
 
 export const dynamic = "force-dynamic";
 
-/** Re-seed Man City GW1–3 baseline from sample files (POC helper). */
+/** Re-seed Man City GW1–3 baseline from sample files into FS / Vercel Blob. */
 export async function POST(req: NextRequest) {
   const denied = assertAdmin(req);
   if (denied) return denied;
 
   try {
-    const dataDir = path.join(process.cwd(), "data", "samples");
-    const [seasonText, xgText] = await Promise.all([
-      fs.readFile(path.join(dataDir, "SeasonStats - Man City.json"), "utf-8"),
-      fs.readFile(path.join(dataDir, "ExpectedGoals - Man City.json"), "utf-8"),
-    ]);
-    const snapshot = buildSnapshotFromRaw({
-      throughGameweek: 3,
-      seasonStatsRaw: JSON.parse(seasonText),
-      expectedGoalsRaw: JSON.parse(xgText),
-    });
-    await upsertSnapshot(snapshot);
-    const store = await readStore();
-    store.seeded = true;
-    await writeStore(store);
+    const snapshot = await seedManCityBaseline();
+    const manCity = snapshot.snapshots.find((s) => s.shortName === "MCI") ?? snapshot.snapshots[0];
     return NextResponse.json({
       ok: true,
-      team: snapshot.teamName,
-      throughGameweek: 3,
-      playerCount: snapshot.players.length,
+      team: manCity?.teamName ?? "Manchester City",
+      throughGameweek: manCity?.throughGameweek ?? 3,
+      playerCount: manCity?.players.length ?? 0,
+      storageMode: process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "filesystem",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Seed failed";

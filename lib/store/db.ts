@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { get, put } from "@vercel/blob";
+import { BlobNotFoundError, get, put } from "@vercel/blob";
+import { resolveTeamIdentity } from "@/lib/constants/teams";
 import type { CumulativeSnapshot, DataStore } from "@/lib/types";
 import { parseSeasonStats } from "@/lib/parsers/seasonStats";
 import { parseExpectedGoals } from "@/lib/parsers/expectedGoals";
@@ -20,11 +21,100 @@ const STORE_BLOB_PATH = "fpl-lab/store.json";
 
 const EMPTY_STORE: DataStore = { snapshots: [], seeded: false };
 
-/** In-process cache — critical when the store is large (~tens of MB). */
+/**
+ * Local-dev only. On Vercel / Blob we always re-read the source of truth —
+ * a process-local cache causes "ingest OK but /api/meta still shows old data"
+ * across serverless instances.
+ */
 let memoryCache: DataStore | null = null;
 
-function isBlobStoreEnabled(): boolean {
+export function isBlobStoreEnabled(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+export function getStorageMode(): "blob" | "filesystem" {
+  return isBlobStoreEnabled() ? "blob" : "filesystem";
+}
+
+function isVercelRuntime(): boolean {
+  return Boolean(process.env.VERCEL);
+}
+
+function assertPersistentWritesAllowed(): void {
+  if (isVercelRuntime() && !isBlobStoreEnabled()) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is missing. Connect a Vercel Blob store to this project and redeploy — local filesystem writes do not persist on Vercel."
+    );
+  }
+}
+
+function cloneStore(store: DataStore): DataStore {
+  return structuredClone(store);
+}
+
+function coerceThroughGameweek(value: unknown, fallback = 3): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (Number.isFinite(n) && n >= 1 && n <= 38) return n;
+  return fallback;
+}
+
+/**
+ * Repair snapshots loaded from Blob/FS:
+ * - restore missing/empty players from seasonStatsRaw / expectedGoalsRaw
+ * - coerce invalid throughGameweek (null/0 → baseline 3)
+ * - map Opta teamId → shortName via TEAM_ID_TO_CODE
+ */
+export function normalizeSnapshot(snapshot: CumulativeSnapshot): CumulativeSnapshot {
+  const throughGameweek = coerceThroughGameweek(snapshot.throughGameweek, 3);
+  const needsRebuild =
+    !Array.isArray(snapshot.players) ||
+    snapshot.players.length === 0 ||
+    !snapshot.teamStats ||
+    Object.keys(snapshot.teamStats).length === 0;
+
+  let next: CumulativeSnapshot = snapshot;
+
+  if (
+    needsRebuild &&
+    (snapshot.seasonStatsRaw != null || snapshot.expectedGoalsRaw != null)
+  ) {
+    try {
+      const rebuilt = buildSnapshotFromRaw({
+        throughGameweek,
+        seasonStatsRaw: snapshot.seasonStatsRaw,
+        expectedGoalsRaw: snapshot.expectedGoalsRaw,
+      });
+      next = {
+        ...rebuilt,
+        uploadedAt: snapshot.uploadedAt || rebuilt.uploadedAt,
+      };
+    } catch (err) {
+      console.error("Failed to rebuild snapshot from raw JSON:", err);
+    }
+  }
+
+  const identity = resolveTeamIdentity({
+    teamId: next.teamId,
+    name: next.teamName,
+    shortName: next.shortName,
+  });
+
+  return {
+    ...next,
+    throughGameweek: coerceThroughGameweek(next.throughGameweek, throughGameweek),
+    teamId: identity.teamId !== "unknown" ? identity.teamId : next.teamId,
+    teamName: identity.name,
+    shortName: identity.shortName,
+    players: Array.isArray(next.players) ? next.players : [],
+    teamStats: next.teamStats ?? {},
+  };
+}
+
+export function normalizeStore(store: DataStore): DataStore {
+  return {
+    ...store,
+    snapshots: (store.snapshots ?? []).map((s) => normalizeSnapshot(s)),
+  };
 }
 
 async function ensureDataDir() {
@@ -59,8 +149,11 @@ async function readStoreFromBlob(): Promise<DataStore> {
     if (!text.trim()) return { ...EMPTY_STORE, snapshots: [] };
     return JSON.parse(text) as DataStore;
   } catch (err) {
-    console.error("Failed to read store from Blob:", err);
-    return { ...EMPTY_STORE, snapshots: [] };
+    if (err instanceof BlobNotFoundError) {
+      return { ...EMPTY_STORE, snapshots: [] };
+    }
+    const message = err instanceof Error ? err.message : "Blob read failed";
+    throw new Error(`Failed to read store from Blob: ${message}`);
   }
 }
 
@@ -75,23 +168,38 @@ async function writeStoreToBlob(store: DataStore): Promise<void> {
   });
 }
 
-export async function readStore(): Promise<DataStore> {
-  if (memoryCache) return memoryCache;
+export async function readStore(options?: { fresh?: boolean }): Promise<DataStore> {
+  const fresh = options?.fresh || isBlobStoreEnabled();
 
-  const store = isBlobStoreEnabled()
+  if (!fresh && memoryCache) {
+    return cloneStore(memoryCache);
+  }
+
+  const raw = isBlobStoreEnabled()
     ? await readStoreFromBlob()
     : await readStoreFromFs();
-  memoryCache = store;
-  return store;
+  const store = normalizeStore(raw);
+
+  if (!isBlobStoreEnabled()) {
+    memoryCache = store;
+  } else {
+    memoryCache = null;
+  }
+
+  return cloneStore(store);
 }
 
 export async function writeStore(store: DataStore): Promise<void> {
+  assertPersistentWritesAllowed();
+  const normalized = normalizeStore(store);
+
   if (isBlobStoreEnabled()) {
-    await writeStoreToBlob(store);
+    await writeStoreToBlob(normalized);
+    memoryCache = null;
   } else {
-    await writeStoreToFs(store);
+    await writeStoreToFs(normalized);
+    memoryCache = cloneStore(normalized);
   }
-  memoryCache = store;
 }
 
 export function buildSnapshotFromRaw(params: {
@@ -99,7 +207,8 @@ export function buildSnapshotFromRaw(params: {
   seasonStatsRaw?: unknown;
   expectedGoalsRaw?: unknown;
 }): CumulativeSnapshot {
-  const { throughGameweek, seasonStatsRaw, expectedGoalsRaw } = params;
+  const throughGameweek = coerceThroughGameweek(params.throughGameweek, 3);
+  const { seasonStatsRaw, expectedGoalsRaw } = params;
 
   if (!seasonStatsRaw && !expectedGoalsRaw) {
     throw new Error("Provide SeasonStats and/or ExpectedGoals JSON");
@@ -108,9 +217,11 @@ export function buildSnapshotFromRaw(params: {
   const season = seasonStatsRaw ? parseSeasonStats(seasonStatsRaw) : null;
   const expected = expectedGoalsRaw ? parseExpectedGoals(expectedGoalsRaw) : null;
 
-  const teamId = season?.team.id || expected?.team.id || "unknown";
-  const teamName = season?.team.name || expected?.team.name || "Unknown";
-  const shortName = season?.team.shortName || expected?.team.shortName || "UNK";
+  const identity = resolveTeamIdentity({
+    teamId: season?.team.id || expected?.team.id,
+    name: season?.team.name || expected?.team.name,
+    shortName: season?.team.shortName || expected?.team.shortName,
+  });
 
   const seasonPlayers = new Map((season?.players ?? []).map((p) => [p.id, p]));
   const expectedPlayers = new Map((expected?.players ?? []).map((p) => [p.id, p]));
@@ -134,9 +245,9 @@ export function buildSnapshotFromRaw(params: {
 
   return {
     throughGameweek,
-    teamId,
-    teamName,
-    shortName,
+    teamId: identity.teamId,
+    teamName: identity.name,
+    shortName: identity.shortName,
     seasonStatsRaw,
     expectedGoalsRaw,
     teamStats,
@@ -146,14 +257,17 @@ export function buildSnapshotFromRaw(params: {
 }
 
 export async function upsertSnapshot(snapshot: CumulativeSnapshot): Promise<DataStore> {
-  const store = await readStore();
+  const normalized = normalizeSnapshot(snapshot);
+  const store = await readStore({ fresh: true });
   const idx = store.snapshots.findIndex(
-    (s) => s.teamId === snapshot.teamId && s.throughGameweek === snapshot.throughGameweek
+    (s) =>
+      s.teamId === normalized.teamId &&
+      s.throughGameweek === normalized.throughGameweek
   );
   if (idx >= 0) {
-    store.snapshots[idx] = snapshot;
+    store.snapshots[idx] = normalized;
   } else {
-    store.snapshots.push(snapshot);
+    store.snapshots.push(normalized);
   }
   store.snapshots.sort(
     (a, b) => a.teamId.localeCompare(b.teamId) || a.throughGameweek - b.throughGameweek
@@ -168,24 +282,30 @@ export async function clearStore(): Promise<DataStore> {
   return store;
 }
 
+/** Seed Man City GW1–3 sample into the active store (FS or Blob). */
+export async function seedManCityBaseline(): Promise<DataStore> {
+  const [seasonText, xgText] = await Promise.all([
+    fs.readFile(SAMPLE_SEASON, "utf-8"),
+    fs.readFile(SAMPLE_XG, "utf-8"),
+  ]);
+  const snapshot = buildSnapshotFromRaw({
+    throughGameweek: 3,
+    seasonStatsRaw: JSON.parse(seasonText),
+    expectedGoalsRaw: JSON.parse(xgText),
+  });
+  const store = await upsertSnapshot(snapshot);
+  store.seeded = true;
+  await writeStore(store);
+  return store;
+}
+
 export async function ensureSeeded(): Promise<DataStore> {
-  let store = await readStore();
+  let store = await readStore({ fresh: true });
   // seeded=true means "already initialized" (even if user cleared all snapshots)
   if (store.seeded) return store;
 
   try {
-    const [seasonText, xgText] = await Promise.all([
-      fs.readFile(SAMPLE_SEASON, "utf-8"),
-      fs.readFile(SAMPLE_XG, "utf-8"),
-    ]);
-    const snapshot = buildSnapshotFromRaw({
-      throughGameweek: 3,
-      seasonStatsRaw: JSON.parse(seasonText),
-      expectedGoalsRaw: JSON.parse(xgText),
-    });
-    store = await upsertSnapshot(snapshot);
-    store.seeded = true;
-    await writeStore(store);
+    store = await seedManCityBaseline();
   } catch (err) {
     console.error("Failed to seed Man City baseline:", err);
   }

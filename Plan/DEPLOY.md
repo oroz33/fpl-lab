@@ -1,7 +1,9 @@
 # Production deploy (free) — GitHub + Vercel
 
 This app uses a local `data/store.json` in development. On Vercel, the store
-lives in **Vercel Blob** when `BLOB_READ_WRITE_TOKEN` is set.
+**must** live in **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`). Without Blob,
+ingest may appear to succeed on one serverless instance while `/api/meta`
+still shows only the Man City seed — filesystem writes do not persist.
 
 ## 1. Push to GitHub
 
@@ -31,7 +33,8 @@ Do not commit `data/store.json` (gitignored). Upload data after deploy.
 1. Open the site → **Upload Opta Feed**
 2. Enter the same value as `ADMIN_SECRET`
 3. **Load Man City GW1–3** or batch-upload your JSON
-4. Refresh — data should persist (Blob + in-memory cache)
+4. Refresh — data should persist in Blob. Confirm via `/api/meta`:
+   `storageMode` must be `"blob"`, and `teams` / `snapshotCount` should grow after ingest.
 
 ## Local vs production
 

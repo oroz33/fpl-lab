@@ -127,6 +127,8 @@ export interface MetaResponse {
   seeded: boolean;
   /** True when ingest/clear/seed require ADMIN_SECRET */
   writeProtected: boolean;
+  /** Where snapshots are persisted (`blob` required on Vercel). */
+  storageMode: "blob" | "filesystem";
 }
 
 export type FdrPerspective = "offensive" | "defensive";

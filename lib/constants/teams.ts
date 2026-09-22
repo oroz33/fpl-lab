@@ -71,6 +71,30 @@ export const TEAM_ID_TO_CODE: Record<string, string> = {
 
 const FALLBACK_ACCENT = "#64748B";
 
+/**
+ * Resolve display shortName / name from Opta contestant id.
+ * Prefer the 3-letter code map so SeasonStats-only feeds (missing optaSymId)
+ * still show ARS/MCI/… instead of UNK.
+ */
+export function resolveTeamIdentity(input: {
+  teamId?: string;
+  name?: string;
+  shortName?: string;
+}): { teamId: string; name: string; shortName: string; code?: string } {
+  const teamId = input.teamId?.trim() || "unknown";
+  const code = TEAM_ID_TO_CODE[teamId];
+  const fromCode = code ? TEAM_ACCENTS[code] : undefined;
+  const rawShort = input.shortName?.trim();
+  const usableRaw =
+    rawShort && rawShort.toUpperCase() !== "UNK" ? rawShort : undefined;
+
+  // Prefer canonical 3-letter code when we know the Opta id.
+  const shortName = code || usableRaw || "UNK";
+  const name = input.name?.trim() || fromCode?.name || "Unknown Team";
+
+  return { teamId, name, shortName, code };
+}
+
 /** Resolve accent hex from Opta teamId and/or 3-letter code. */
 export function resolveTeamAccent(input: {
   teamId?: string;

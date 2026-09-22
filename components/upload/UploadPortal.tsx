@@ -70,6 +70,9 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   const [busy, setBusy] = useState(false);
   const [writeProtected, setWriteProtected] = useState(false);
   const [adminSecret, setAdminSecret] = useState("");
+  const [storageMode, setStorageMode] = useState<"blob" | "filesystem" | null>(
+    null
+  );
 
   useEffect(() => {
     try {
@@ -80,9 +83,17 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
     }
     fetch("/api/meta")
       .then((r) => r.json())
-      .then((data: { writeProtected?: boolean }) => {
-        setWriteProtected(Boolean(data.writeProtected));
-      })
+      .then(
+        (data: {
+          writeProtected?: boolean;
+          storageMode?: "blob" | "filesystem";
+        }) => {
+          setWriteProtected(Boolean(data.writeProtected));
+          if (data.storageMode === "blob" || data.storageMode === "filesystem") {
+            setStorageMode(data.storageMode);
+          }
+        }
+      )
       .catch(() => {
         /* meta optional for local */
       });
@@ -307,6 +318,13 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {writeProtected && storageMode === "filesystem" && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              Server storage is filesystem mode — uploads will not persist on
+              Vercel. Connect a Blob store (`BLOB_READ_WRITE_TOKEN`) and redeploy.
+            </p>
+          )}
+
           {writeProtected && (
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
