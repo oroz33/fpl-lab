@@ -28,17 +28,38 @@ Do not commit `data/store.json` (gitignored). Upload data after deploy.
    - `ADMIN_SECRET` = a strong password you choose
 3. **Redeploy** so env vars apply
 
-## 4. After go-live
+## 4. After go-live — sync local data to production
 
-1. Open the site → **Upload Opta Feed**
-2. Enter the same value as `ADMIN_SECRET`
-3. **Load Man City GW1–3** or batch-upload your JSON
-4. Refresh — data should persist in Blob. Confirm via `/api/meta`:
-   `storageMode` must be `"blob"`, and `teams` / `snapshotCount` should grow after ingest.
+Do **not** re-upload Opta JSON on the production Upload UI for weekly updates.
+Ingest locally, then overwrite Blob with your local store:
+
+1. Put `BLOB_READ_WRITE_TOKEN` in `.env.local` (Vercel → Storage / Env), or:
+   `npx vercel link --project fpl-lab && npx vercel env pull .env.local --environment=production`
+   (Blob env vars must not be marked Sensitive, or the pulled token will be empty.)
+2. Ensure `data/store.json` looks correct on http://localhost:3000/
+3. Run:
+
+```bash
+npm run sync:prod
+```
+
+This replaces Vercel Blob `fpl-lab/store.json` with your local store (full overwrite).
+Player Data, H2H, Fixture Tracker, and all tabs then read the same data.
+
+Confirm via https://fpl-lab-alpha.vercel.app/api/meta — `storageMode` must be `"blob"`,
+and `snapshotCount` / teams should match local.
+
+### Weekly workflow
+
+1. Upload Opta feeds on localhost (Upload Opta Feed)
+2. Verify Player Data / Fixture Tracker locally
+3. `npm run sync:prod`
+4. Hard-refresh production
 
 ## Local vs production
 
 | | Local | Production |
 |--|--------|------------|
 | Store | `data/store.json` | Vercel Blob `fpl-lab/store.json` |
-| Writes | open (no secret) | require `ADMIN_SECRET` |
+| Writes | open (no secret) | require `ADMIN_SECRET` for Upload UI; sync uses Blob token |
+| Weekly sync | ingest here | `npm run sync:prod` |

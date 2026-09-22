@@ -313,7 +313,12 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
           <DialogDescription>
             Upload one team via paste, or multi-select many SeasonStats /
             ExpectedGoals JSON files. Files are paired by team id and ingested
-            with the same through-gameweek.
+            with the same through-gameweek. After a local ingest looks good, push
+            the whole store to production with{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-[0.85em]">
+              npm run sync:prod
+            </code>
+            .
           </DialogDescription>
         </DialogHeader>
 

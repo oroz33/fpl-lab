@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:prod": "npx --yes tsx scripts/sync-store-to-blob.mts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.11",

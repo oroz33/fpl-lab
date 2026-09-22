@@ -47,7 +47,11 @@ next-env.d.ts
 .cursor/
 debug-*.log
 /data/Round */
+/data/extracted/
 /Teams Color/
 
 # Runtime store — production uses Vercel Blob; keep local copy out of git
 /data/store.json
+
+.vercel
+.env*.local
