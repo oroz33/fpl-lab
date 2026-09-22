@@ -19,7 +19,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Full documentation (Hebrew): **[Plan/PROJECT.md](./Plan/PROJECT.md)**
+Full documentation (Hebrew): **[Plan/PROJECT.md](./Plan/PROJECT.md)**  
+Production deploy (free GitHub + Vercel): **[Plan/DEPLOY.md](./Plan/DEPLOY.md)**
+
 ## Weekly upload
 
 **Upload Opta Feed** in the UI:

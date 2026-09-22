@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
+import { assertAdmin } from "@/lib/auth/admin";
 import { buildSnapshotFromRaw, upsertSnapshot, writeStore, readStore } from "@/lib/store/db";
 
 export const dynamic = "force-dynamic";
 
 /** Re-seed Man City GW1–3 baseline from sample files (POC helper). */
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const denied = assertAdmin(req);
+  if (denied) return denied;
+
   try {
     const dataDir = path.join(process.cwd(), "data", "samples");
     const [seasonText, xgText] = await Promise.all([

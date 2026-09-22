@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,8 @@ import {
   parseBatchFile,
   type ParsedBatchFile,
 } from "@/lib/ingest/batch";
+
+const ADMIN_SECRET_KEY = "fpl-lab-admin-secret";
 
 async function readFilesAsBatch(fileList: FileList | null): Promise<{
   ok: ParsedBatchFile[];
@@ -46,6 +48,17 @@ function summarizeFiles(files: ParsedBatchFile[]): string {
   return `${files.length} file${files.length === 1 ? "" : "s"}: ${names.join(", ")}${more}`;
 }
 
+function adminHeaders(secret: string, writeProtected: boolean): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (writeProtected && secret.trim()) {
+    headers.Authorization = `Bearer ${secret.trim()}`;
+    headers["x-admin-secret"] = secret.trim();
+  }
+  return headers;
+}
+
 export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   const [open, setOpen] = useState(false);
   const [throughGw, setThroughGw] = useState(3);
@@ -55,6 +68,50 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   const [xgBatch, setXgBatch] = useState<ParsedBatchFile[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [writeProtected, setWriteProtected] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(ADMIN_SECRET_KEY);
+      if (saved) setAdminSecret(saved);
+    } catch {
+      /* ignore */
+    }
+    fetch("/api/meta")
+      .then((r) => r.json())
+      .then((data: { writeProtected?: boolean }) => {
+        setWriteProtected(Boolean(data.writeProtected));
+      })
+      .catch(() => {
+        /* meta optional for local */
+      });
+  }, []);
+
+  function persistSecret(value: string) {
+    setAdminSecret(value);
+    try {
+      if (value.trim()) sessionStorage.setItem(ADMIN_SECRET_KEY, value.trim());
+      else sessionStorage.removeItem(ADMIN_SECRET_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function ingestOne(payload: {
+    throughGameweek: number;
+    seasonStats?: unknown;
+    expectedGoals?: unknown;
+  }) {
+    const res = await fetch("/api/ingest", {
+      method: "POST",
+      headers: adminHeaders(adminSecret, writeProtected),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+    return data as { team: string; throughGameweek: number; playerCount: number };
+  }
 
   async function handleSeasonFiles(fileList: FileList | null) {
     const { ok, errors } = await readFilesAsBatch(fileList);
@@ -100,22 +157,11 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
     }
   }
 
-  async function ingestOne(payload: {
-    throughGameweek: number;
-    seasonStats?: unknown;
-    expectedGoals?: unknown;
-  }) {
-    const res = await fetch("/api/ingest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Upload failed");
-    return data as { team: string; throughGameweek: number; playerCount: number };
-  }
-
   async function ingest() {
+    if (writeProtected && !adminSecret.trim()) {
+      setStatus("Admin secret required for uploads in production.");
+      return;
+    }
     setBusy(true);
     setStatus(null);
     try {
@@ -181,6 +227,10 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   }
 
   async function clearAllData() {
+    if (writeProtected && !adminSecret.trim()) {
+      setStatus("Admin secret required to clear data in production.");
+      return;
+    }
     const confirmed = window.confirm(
       "Clear ALL uploaded snapshots? You can upload fresh JSON afterwards. This cannot be undone."
     );
@@ -189,7 +239,10 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
     setBusy(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/clear", { method: "POST" });
+      const res = await fetch("/api/clear", {
+        method: "POST",
+        headers: adminHeaders(adminSecret, writeProtected),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Clear failed");
       setSeasonBatch([]);
@@ -206,10 +259,17 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   }
 
   async function loadSample() {
+    if (writeProtected && !adminSecret.trim()) {
+      setStatus("Admin secret required to seed data in production.");
+      return;
+    }
     setBusy(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/seed", { method: "POST" });
+      const res = await fetch("/api/seed", {
+        method: "POST",
+        headers: adminHeaders(adminSecret, writeProtected),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Seed failed");
       setStatus(`Loaded Man City baseline GW1–3 (${data.playerCount} players).`);
@@ -223,6 +283,7 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
   }
 
   const batchCount = pairBatchFiles(seasonBatch, xgBatch).length;
+  const writesLocked = writeProtected && !adminSecret.trim();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -246,6 +307,25 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {writeProtected && (
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Admin secret
+              </span>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                placeholder="Required for upload / clear / seed"
+                value={adminSecret}
+                onChange={(e) => persistSecret(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                Matches the ADMIN_SECRET env var on the server. Stored in this
+                browser tab only.
+              </p>
+            </label>
+          )}
+
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Cumulative through gameweek
@@ -324,16 +404,20 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
             <Button
               variant="danger"
               onClick={clearAllData}
-              disabled={busy}
+              disabled={busy || writesLocked}
               type="button"
             >
               Clear all data
             </Button>
             <div className="flex flex-wrap gap-2 justify-end">
-              <Button variant="outline" onClick={loadSample} disabled={busy}>
+              <Button
+                variant="outline"
+                onClick={loadSample}
+                disabled={busy || writesLocked}
+              >
                 Load Man City GW1–3
               </Button>
-              <Button onClick={ingest} disabled={busy}>
+              <Button onClick={ingest} disabled={busy || writesLocked}>
                 {busy
                   ? "Ingesting…"
                   : batchCount > 1

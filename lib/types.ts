@@ -125,6 +125,8 @@ export interface MetaResponse {
   teams: { id: string; name: string; shortName: string }[];
   snapshotCount: number;
   seeded: boolean;
+  /** True when ingest/clear/seed require ADMIN_SECRET */
+  writeProtected: boolean;
 }
 
 export type FdrPerspective = "offensive" | "defensive";

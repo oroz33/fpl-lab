@@ -42,3 +42,12 @@ next-env.d.ts
 
 # Opta scraper dumps
 /output/
+
+# Local / debug / bulk dumps (not for deploy)
+.cursor/
+debug-*.log
+/data/Round */
+/Teams Color/
+
+# Runtime store — production uses Vercel Blob; keep local copy out of git
+/data/store.json

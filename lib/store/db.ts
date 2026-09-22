@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { get, put } from "@vercel/blob";
 import type { CumulativeSnapshot, DataStore } from "@/lib/types";
 import { parseSeasonStats } from "@/lib/parsers/seasonStats";
 import { parseExpectedGoals } from "@/lib/parsers/expectedGoals";
@@ -14,14 +15,23 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 const SAMPLE_SEASON = path.join(DATA_DIR, "samples", "SeasonStats - Man City.json");
 const SAMPLE_XG = path.join(DATA_DIR, "samples", "ExpectedGoals - Man City.json");
+/** Fixed pathname in Vercel Blob (public Hobby store). */
+const STORE_BLOB_PATH = "fpl-lab/store.json";
 
 const EMPTY_STORE: DataStore = { snapshots: [], seeded: false };
+
+/** In-process cache — critical when the store is large (~tens of MB). */
+let memoryCache: DataStore | null = null;
+
+function isBlobStoreEnabled(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
 
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
 
-export async function readStore(): Promise<DataStore> {
+async function readStoreFromFs(): Promise<DataStore> {
   await ensureDataDir();
   try {
     const raw = await fs.readFile(STORE_PATH, "utf-8");
@@ -31,9 +41,57 @@ export async function readStore(): Promise<DataStore> {
   }
 }
 
-export async function writeStore(store: DataStore): Promise<void> {
+async function writeStoreToFs(store: DataStore): Promise<void> {
   await ensureDataDir();
   await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
+}
+
+async function readStoreFromBlob(): Promise<DataStore> {
+  try {
+    const result = await get(STORE_BLOB_PATH, {
+      access: "public",
+      useCache: false,
+    });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return { ...EMPTY_STORE, snapshots: [] };
+    }
+    const text = await new Response(result.stream).text();
+    if (!text.trim()) return { ...EMPTY_STORE, snapshots: [] };
+    return JSON.parse(text) as DataStore;
+  } catch (err) {
+    console.error("Failed to read store from Blob:", err);
+    return { ...EMPTY_STORE, snapshots: [] };
+  }
+}
+
+async function writeStoreToBlob(store: DataStore): Promise<void> {
+  await put(STORE_BLOB_PATH, JSON.stringify(store), {
+    access: "public",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+    multipart: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+export async function readStore(): Promise<DataStore> {
+  if (memoryCache) return memoryCache;
+
+  const store = isBlobStoreEnabled()
+    ? await readStoreFromBlob()
+    : await readStoreFromFs();
+  memoryCache = store;
+  return store;
+}
+
+export async function writeStore(store: DataStore): Promise<void> {
+  if (isBlobStoreEnabled()) {
+    await writeStoreToBlob(store);
+  } else {
+    await writeStoreToFs(store);
+  }
+  memoryCache = store;
 }
 
 export function buildSnapshotFromRaw(params: {

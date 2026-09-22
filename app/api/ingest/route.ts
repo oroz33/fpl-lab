@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/auth/admin";
 import { buildSnapshotFromRaw, ensureSeeded, upsertSnapshot } from "@/lib/store/db";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const denied = assertAdmin(req);
+  if (denied) return denied;
+
   try {
     await ensureSeeded();
     const body = await req.json();
