@@ -2,7 +2,7 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.7.0` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
+**גרסה נוכחית:** `v1.8.0` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
 **עודכן לאחרונה:** Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Next 3|5 layout · Column filter precision · Favorite Players · Metric header tooltips · Fixture Tracker
 
 ---
@@ -104,6 +104,7 @@ FPL/
 │   ├── page.tsx                    # Player Data (Dashboard)
 │   ├── fixtures/page.tsx           # Fixture Tracker
 │   ├── h2h/page.tsx                # H2H Player Comparison
+│   ├── my-team/page.tsx            # My Team (squad + stats / intel tabs)
 │   ├── opta-batch/page.tsx
 │   ├── globals.css                 # צבעים + הסתרת spinners בפילטרים
 │   └── api/
@@ -120,10 +121,11 @@ FPL/
 │   ├── upload/UploadPortal.tsx     # העלאה יחידה + batch + clear
 │   ├── players/PlayerTables.tsx    # + Star favorites · Compare → /h2h?a= · Δ xGI · sticky Team
 │   ├── teams/TeamTables.tsx        # ΔG / ΔGC / ΔCS · team accents
+│   ├── my-team/                    # MyTeamView, LastFixturesStats, NewsGrid, SquadDialog, MiniBar
 │   ├── analytics/                  # XGIVarianceBadge (signed Δ xGI + tooltip)
 │   ├── fixtures/FixtureTrackerView.tsx
 │   ├── h2h/                        # H2HCompareView, radar, matrix, slots…
-│   ├── layout/                     # AppShell, AppHeader, AppSidebar
+│   ├── layout/                     # AppShell, AppHeader, AppSidebar, AppNavLinks
 │   └── ui/
 │       ├── data-table.tsx          # cumulative sticky · Next 3|5 · filters · heatmap · tooltips
 │       ├── fixture-badges.tsx      # FDR chips + Avg FDR + horizon sync
@@ -131,8 +133,10 @@ FPL/
 │       ├── tooltip.tsx             # Radix Tooltip (metric headers + FDR chips)
 │       └── button, dialog, tabs, …
 ├── lib/
-│   ├── types.ts
+│   ├── types.ts                    # + Squad / PlayerIntel types
 │   ├── utils.ts
+│   ├── heatmap.ts                  # percentile + heatmap class helpers (shared)
+│   ├── squad/                      # rules, use-my-team (localStorage), player-intel
 │   ├── h2h/                        # metrics.ts, radar.ts
 │   ├── constants/
 │   │   ├── teams.ts                # TEAM_ACCENTS · TEAM_ID_TO_CODE · resolveTeamAccent
@@ -147,6 +151,7 @@ FPL/
 │   └── store/db.ts                 # read/write/clear/seed
 ├── data/
 │   ├── store.json                  # DB מקומי
+│   ├── player-news.json            # Mock Expected XI / fitness / press quotes (My Team Tab 2)
 │   ├── tournament-schedule.json
 │   └── samples/
 │       ├── SeasonStats - Man City.json
@@ -286,7 +291,7 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 
 **Design system:** FPL Lab Precision Analytics — Analytical Minimalist / Sports Terminal (גבולות 1px, צפיפות גבוהה, heatmap רך).
 
-**Universal App Shell:** Header קבוע (`FplLabLogo`, Engine badge, snapshots, Batch Links, Upload) + Sidebar (`Player Data`, **H2H Compare**, **Fixture Tracker** `/fixtures`, Squad Planner = Coming Soon, **Regression Lab** = Coming Soon) + Feed Latency.
+**Universal App Shell:** Header קבוע (`FplLabLogo`, Engine badge, snapshots, Batch Links, Upload) + Sidebar (`Player Data`, **H2H Compare**, **Fixture Tracker** `/fixtures`, **My Team** `/my-team`, Squad Planner = Coming Soon, **Regression Lab** = Coming Soon) + Feed Latency.
 
 ### פילטרים גלובליים
 
@@ -303,6 +308,7 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 **Players:** Attack · Set Pieces · Defending (+ Goalkeeping / Creativity / Bonus — UI placeholders)  
 **Teams:** Defensive (xGC, GC, ΔGC, xCS, CS, ΔCS) · Offensive (xG, G, ΔG)  
 **Fixture Tracker (`/fixtures`):** מטריצת team × GW מ־`startGw = latestCompleteGw + 1` עד GW38 · presets Next 5 / Next 10 / Full Season · Offensive|Defensive · sticky Team + N-AVG (מיון) · DGW stacked chips / BGW dashed · מיון Team A–Z ו־N-AVG  
+**My Team (`/my-team`):** סגל מקומי עד 15 שחקנים ב־`localStorage` (`fpl_lab_my_team`, מפתחות `teamId:playerId`) · מגבלות 2 GKP / 5 DEF / 5 MID / 3 FWD + מקס 3 לקבוצה · Mini-bar לפי עמדה · **Tab 1 — Last Fixtures Stats** (sticky POS/PLAYER/TEAM/NEXT/FDR, מדדים, heatmap מול כל הליגה, placeholder לשורות חסרות) · **Tab 2 — News & Team Intel** (`MyTeamNewsGrid`: Expected XI / Fitness / Press Quote מ־`data/player-news.json`) · `SquadDialog` לעריכה  
 **H2H Compare (`/h2h`):** בחירת שני שחקני שדה (ללא GKP) · Per 90 / Total · רדאר אחוזונים דינמי לפי זיווג עמדות (SVG, 6 צירים) · Archetype panel · מטריצת מנצחים (Opta בלבד — ללא ownership/price/FPL points)
 
 **Percentile Radar — כללים:**
@@ -502,10 +508,13 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.7.0**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.8.0**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.8.0 | My Team page | Route `/my-team` + sidebar (`Users`); סגל ב־`localStorage` (`fpl_lab_my_team`); מגבלות עמדה/קבוצה; Mini-bar + SquadDialog; Tab 1 Last Fixtures Stats (sticky + heatmap ליגה מלאה + empty slots) |
+| v1.8.0 | News & Team Intel | Tab 2 על `/my-team`: `MyTeamNewsGrid` · Expected XI / Fitness / Press Quote · mock `data/player-news.json` + `resolvePlayerIntel` · badges emerald / caution / rose |
+| v1.8.0 | Shared heatmap helpers | חילוץ `percentileAt` / heatmap classes ל־`lib/heatmap.ts`; DataTable מייבא משם |
 | v1.7.0 | Δ xGI Variance | עמודה `Δ xGI` ב־Attack: `actualReturns − xGI`, סף ±0.75 (`UNDERPERFORMING` / `OVERPERFORMING` / `ALIGNED`); טקסט חתום emerald/rose + tooltip; שדות ב־`PlayerRow` + חישוב ב־`lib/delta/engine.ts` |
 | v1.7.0 | Sticky Player Data layout | סדר sticky מצטבר Player → Team → Next → Avg FDR; רוחבי Next 3\|5; הסתרת עמודות שגוללות מתחת לקצה ה־sticky (בלי פילטר Apps יתום) |
 | v1.6.2 | Column filter precision | פילטר עמודות לפי `digits`: שלמים (`Apps`/`KP`/`Shots` וכו׳) ב־step 1 ותצוגה בלי עשרונים; עשרוניים (`xG`/`xA`/`xGI`/`npxGI`/`DC/G`) נשארים ב־2 ספרות |
@@ -562,4 +571,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.7.0 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.8.0 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*

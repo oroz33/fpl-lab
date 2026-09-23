@@ -164,3 +164,39 @@ export interface StatsResponse {
     baselineNote?: string;
   };
 }
+
+/** Composite id stored in My Team squad: `teamId:optaPlayerId`. */
+export type SquadPlayerId = string;
+
+export const SQUAD_POSITION_LIMITS: Record<Position, number> = {
+  GKP: 2,
+  DEF: 5,
+  MID: 5,
+  FWD: 3,
+};
+
+export const SQUAD_SIZE = 15;
+export const MAX_PLAYERS_PER_TEAM = 3;
+
+export const SQUAD_POSITION_ORDER: Position[] = ["GKP", "DEF", "MID", "FWD"];
+
+export interface SquadMissingSlot {
+  position: Position;
+  /** 1-based index within that position (e.g. GKP #2). */
+  slotIndex: number;
+  key: string;
+}
+
+export type ExpectedXiStatus = "STARTER" | "ROTATION_RISK" | "RULED_OUT";
+
+export type FitnessTone = "fit" | "doubt" | "out";
+
+export interface PlayerIntel {
+  expectedXi: ExpectedXiStatus;
+  /** Display label, e.g. "100% FIT", "DOUBT 75% (HAMSTRING)". */
+  fitnessLabel: string;
+  fitnessTone: FitnessTone;
+  managerName: string;
+  quote: string;
+}
+

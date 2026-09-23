@@ -8,6 +8,7 @@ import {
   Shield,
   Table2,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,12 @@ export const NAV = [
     href: "/fixtures",
     label: "Fixture Tracker",
     icon: CalendarRange,
+    enabled: true,
+  },
+  {
+    href: "/my-team",
+    label: "My Team",
+    icon: Users,
     enabled: true,
   },
   {

@@ -1,0 +1,171 @@
+{
+  "managersByCode": {
+    "ARS": "Arteta",
+    "AVL": "Emery",
+    "BHA": "Hürzeler",
+    "BOU": "Iraola",
+    "BRE": "Frank",
+    "CHE": "Maresca",
+    "CRY": "Glasner",
+    "EVE": "Moyes",
+    "FUL": "Silva",
+    "IPS": "McKenna",
+    "LEI": "van Nistelrooy",
+    "LIV": "Slot",
+    "MCI": "Guardiola",
+    "MUN": "Amorim",
+    "NEW": "Howe",
+    "NFO": "Nuno",
+    "SOU": "Rusk",
+    "TOT": "Postecoglou",
+    "WHU": "Potter",
+    "WOL": "Pereira"
+  },
+  "playersByKey": {
+    "ars:raya": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Arteta",
+      "quote": "David has been incredible between the posts and is in peak physical shape."
+    },
+    "nfo:sels": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Nuno",
+      "quote": "Matz is doing tremendous work and gives total calmness to the backline."
+    },
+    "ars:gabriel": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Arteta",
+      "quote": "Gabriel gives us that presence, emotional balance and dominance in both boxes."
+    },
+    "liv:alexander": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Slot",
+      "quote": "Trent had some fatigue after 80 mins against Bournemouth; he is completely ready for Saturday."
+    },
+    "liv:arnold": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Slot",
+      "quote": "Trent had some fatigue after 80 mins against Bournemouth; he is completely ready for Saturday."
+    },
+    "mci:gvardiol": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Guardiola",
+      "quote": "Josko's understanding of the spaces is fantastic. Full training all week."
+    },
+    "ful:robinson": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Silva",
+      "quote": "Antonee has immense energy down the left channel; completely available."
+    },
+    "ips:greaves": {
+      "expectedXi": "RULED_OUT",
+      "fitnessLabel": "RULED OUT (ANKLE)",
+      "fitnessTone": "out",
+      "managerName": "McKenna",
+      "quote": "Jacob twisted his ankle in training. Scans showed ligament irritation; targeting return after international break."
+    },
+    "ars:saka": {
+      "expectedXi": "ROTATION_RISK",
+      "fitnessLabel": "DOUBT 75% (HAMSTRING)",
+      "fitnessTone": "doubt",
+      "managerName": "Arteta",
+      "quote": "Bukayo felt something small in his hamstring, but he wanted to push. Assessed after final session."
+    },
+    "che:palmer": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT (MIDWEEK RESTED)",
+      "fitnessTone": "fit",
+      "managerName": "Maresca",
+      "quote": "Cole is our talisman, he will start whenever he is fit. He rested completely during midweek."
+    },
+    "nfo:gibbs": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Nuno",
+      "quote": "Morgan is our creative heartbeat. He is fresh and determined for the weekend."
+    },
+    "nfo:gibbs-white": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Nuno",
+      "quote": "Morgan is our creative heartbeat. He is fresh and determined for the weekend."
+    },
+    "bre:mbeumo": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Frank",
+      "quote": "Bryan carries our offensive rhythm right now with Yoane out. He takes full responsibility."
+    },
+    "avl:rogers": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Emery",
+      "quote": "Morgan is playing with huge confidence and giving us verticality."
+    },
+    "mci:haaland": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Guardiola",
+      "quote": "Erling is unstoppable right now. Physically he feels much better than last season."
+    },
+    "avl:watkins": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Emery",
+      "quote": "Ollie is scoring again and building sharpness. Key starter for us."
+    },
+    "nfo:wood": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "managerName": "Nuno",
+      "quote": "Chris is very clinical in the box; he is ready to lead the attack."
+    }
+  },
+  "defaultsByPosition": {
+    "GKP": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "quote": "Fully available and competing for minutes between the posts."
+    },
+    "DEF": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "quote": "Training well and expected to feature in the defensive unit."
+    },
+    "MID": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "quote": "In strong form and available for selection midweek to weekend."
+    },
+    "FWD": {
+      "expectedXi": "STARTER",
+      "fitnessLabel": "100% FIT",
+      "fitnessTone": "fit",
+      "quote": "Sharp in front of goal and ready to lead the line."
+    }
+  }
+}

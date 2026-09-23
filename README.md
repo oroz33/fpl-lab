@@ -2,7 +2,7 @@
 
 Local Fantasy Premier League analysis dashboard with **Precision Analytics** — a high-density sports-terminal UI inspired by Opta / StatsPerform, powered by a weekly cumulative → delta Opta ingestion pipeline.
 
-**Current version:** `v1.7.0`
+**Current version:** `v1.8.0`
 
 ## Quick start
 
@@ -35,9 +35,10 @@ Delta: `GW_n = Cumulative_n − Cumulative_(n−1)`. First upload through GW3 = 
 
 ## Highlights
 
-- Universal App Shell (header + sidebar) · Player Data · H2H Compare (`/h2h`) · Opta Batch Links · Squad Planner / Regression Lab (Coming Soon)
+- Universal App Shell (header + sidebar) · Player Data · H2H Compare (`/h2h`) · Fixture Tracker (`/fixtures`) · **My Team** (`/my-team`) · Opta Batch Links · Squad Planner / Regression Lab (Coming Soon)
 - Players: Attack / Set Pieces / Defending · Teams: Defensive / Offensive (+ ΔG / ΔGC / ΔCS)
-- Metric header tooltips · Popover column filters (threshold / Top 10% / Top 25%) · percentile heatmaps (**Top 2.5%** emerald / Bottom 5% rose) · FDR Next 3|5 + Avg FDR · **Fixture Tracker** (`/fixtures`) · team accent bars
+- **My Team:** localStorage squad (15) · Last Fixtures Stats (league heatmap) · News & Team Intel (Expected XI / fitness / press quotes)
+- Metric header tooltips · Popover column filters (threshold / Top 10% / Top 25%) · percentile heatmaps (**Top 2.5%** emerald / Bottom 5% rose) · FDR Next 3|5 + Avg FDR · team accent bars
 - Dual-player H2H: SVG percentile radar, winner matrix, archetype panel
 - Bento forensic insight cards · Batch multi-file ingest · Clear all data
 
