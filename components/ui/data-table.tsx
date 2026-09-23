@@ -72,7 +72,12 @@ function isFixturesCol<T>(col: ColumnDef<T>): boolean {
   return col.key === "nextFixtures";
 }
 
-function isStickyCol<T>(col: ColumnDef<T>): boolean {
+function isIdentityStickyCol<T>(col: ColumnDef<T>): boolean {
+  return col.key === "name" || col.key === "teamShort";
+}
+
+function isStickyCol<T>(col: ColumnDef<T>, identityOnly: boolean): boolean {
+  if (identityOnly) return isIdentityStickyCol(col);
   return Boolean(col.sticky) || col.key === "name" || isFixturesCol(col);
 }
 
@@ -83,6 +88,23 @@ function isAvgFdrCol<T>(col: ColumnDef<T>): boolean {
 const DEFAULT_IDENTITY_WIDTH = 195;
 const FIXTURES_WIDTH_3 = 168;
 const FIXTURES_WIDTH_5 = 320;
+const MD_UP_QUERY = "(min-width: 768px)";
+
+function useIsMdUp(): boolean {
+  const [isMdUp, setIsMdUp] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(MD_UP_QUERY).matches : true
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(MD_UP_QUERY);
+    const onChange = () => setIsMdUp(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return isMdUp;
+}
 
 type StickyLayout = {
   left: number;
@@ -92,12 +114,13 @@ type StickyLayout = {
 
 function buildStickyLayout<T>(
   columns: ColumnDef<T>[],
-  horizon: FixtureHorizon
+  horizon: FixtureHorizon,
+  identityOnly: boolean
 ): Map<string, StickyLayout> {
   const fixturesWidth = horizon === 5 ? FIXTURES_WIDTH_5 : FIXTURES_WIDTH_3;
   const layout = new Map<string, StickyLayout>();
   let left = 0;
-  const stickyCols = columns.filter(isStickyCol);
+  const stickyCols = columns.filter((col) => isStickyCol(col, identityOnly));
 
   stickyCols.forEach((col, index) => {
     const width = isFixturesCol(col)
@@ -190,6 +213,7 @@ export function DataTable<T extends { id: string }>({
   const [pageSize, setPageSize] = useState<PageSize>(50);
   const [page, setPage] = useState(1);
   const [internalHorizon, setInternalHorizon] = useState<FixtureHorizon>(3);
+  const isMdUp = useIsMdUp();
   const controlled = horizonProp !== undefined && onHorizonChange !== undefined;
   const horizon = controlled ? horizonProp : internalHorizon;
   const setHorizon = controlled ? onHorizonChange : setInternalHorizon;
@@ -297,8 +321,8 @@ export function DataTable<T extends { id: string }>({
   }
 
   const stickyLayout = useMemo(
-    () => buildStickyLayout(columns, horizon),
-    [columns, horizon]
+    () => buildStickyLayout(columns, horizon, !isMdUp),
+    [columns, horizon, isMdUp]
   );
 
   /** Hide non-sticky columns that slide under the sticky edge (avoids orphan filter icons). */

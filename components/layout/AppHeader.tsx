@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown, CloudUpload, Link2, User } from "lucide-react";
+import { ChevronDown, CloudUpload, Link2, Menu, User } from "lucide-react";
 import { FplLabLogo } from "@/components/ui/logo";
 import { UploadPortal } from "@/components/upload/UploadPortal";
 import { cn } from "@/lib/utils";
 
-export function AppHeader({ onIngested }: { onIngested?: () => void }) {
+export function AppHeader({
+  onIngested,
+  onOpenMobileNav,
+}: {
+  onIngested?: () => void;
+  onOpenMobileNav?: () => void;
+}) {
   const pathname = usePathname();
   const onBatch = pathname?.startsWith("/opta-batch");
   // Default true so production never flashes operator controls before meta loads
@@ -27,10 +33,20 @@ export function AppHeader({ onIngested }: { onIngested?: () => void }) {
 
   return (
     <header className="fixed top-0 right-0 left-0 z-50 h-14 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-      <div className="flex h-14 w-full items-center justify-between gap-space-lg px-space-xl">
-        <Link href="/" className="flex items-center gap-space-md">
-          <FplLabLogo className="h-8 w-auto" />
-        </Link>
+      <div className="flex h-14 w-full items-center justify-between gap-space-lg px-3 md:px-space-xl">
+        <div className="flex items-center gap-space-sm">
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            aria-label="Open navigation"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-on-surface transition-colors hover:bg-surface-container md:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link href="/" className="flex items-center gap-space-md">
+            <FplLabLogo className="h-8 w-auto" />
+          </Link>
+        </div>
 
         {!writeProtected && (
           <div className="flex items-center gap-space-md">

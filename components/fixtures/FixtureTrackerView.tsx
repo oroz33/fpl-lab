@@ -215,7 +215,7 @@ export function FixtureTrackerView() {
 
   if (loading) {
     return (
-      <div className="p-space-xl text-[13px] text-on-surface-variant">
+      <div className="p-3 text-[13px] text-on-surface-variant md:p-space-xl">
         Loading Fixture Tracker…
       </div>
     );
@@ -223,7 +223,7 @@ export function FixtureTrackerView() {
 
   if (error || !data) {
     return (
-      <div className="p-space-xl text-[13px] text-rose-700">
+      <div className="p-3 text-[13px] text-rose-700 md:p-space-xl">
         {error ?? "No fixture data"}
       </div>
     );
@@ -231,7 +231,7 @@ export function FixtureTrackerView() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#F8F9FC]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-interior bg-white px-space-xl py-space-md">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-interior bg-white px-3 py-space-md md:px-space-xl">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-[18px] font-bold tracking-tight text-on-surface">
             Fixture Tracker
@@ -288,7 +288,7 @@ export function FixtureTrackerView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-space-xl py-space-md">
+      <div className="flex-1 overflow-auto px-3 py-space-md md:px-space-xl">
         <div className="overflow-hidden rounded-lg border border-border-interior bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="overflow-auto">
             <table className="w-max min-w-full border-collapse text-left">
@@ -410,7 +410,7 @@ export function FixtureTrackerView() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-interior bg-white px-space-xl py-space-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-interior bg-white px-3 py-space-sm md:px-space-xl">
         <div className="flex items-center gap-2 text-[10px] font-medium text-on-surface-variant">
           <span>Rows:</span>
           <div className="inline-flex gap-0.5 rounded-md bg-surface-container-lowest p-0.5 shadow-sm">

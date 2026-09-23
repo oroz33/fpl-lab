@@ -1,8 +1,18 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { usePathname } from "next/navigation";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { AppNavFooter, AppNavLinks } from "@/components/layout/AppNavLinks";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 type ShellContextValue = {
   registerIngestHandler: (handler: (() => void) | null) => void;
@@ -20,10 +30,16 @@ export function useAppShell() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [ingestHandler, setIngestHandler] = useState<(() => void) | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const pathname = usePathname();
 
   const registerIngestHandler = useCallback((handler: (() => void) | null) => {
     setIngestHandler(() => handler);
   }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   const value = useMemo(
     () => ({ registerIngestHandler }),
@@ -32,9 +48,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ShellContext.Provider value={value}>
-      <AppHeader onIngested={ingestHandler ?? undefined} />
+      <AppHeader
+        onIngested={ingestHandler ?? undefined}
+        onOpenMobileNav={() => setMobileNavOpen(true)}
+      />
       <AppSidebar />
-      <div className="flex min-h-screen w-full flex-col pl-64">
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="py-space-lg">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <div className="mb-space-md px-space-xl" />
+          <AppNavLinks onNavigate={() => setMobileNavOpen(false)} />
+          <AppNavFooter />
+        </SheetContent>
+      </Sheet>
+      <div className="flex min-h-screen w-full flex-col pl-0 md:pl-64">
         <main className="w-full flex-1 bg-background pt-14">{children}</main>
       </div>
     </ShellContext.Provider>

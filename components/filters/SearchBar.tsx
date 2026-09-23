@@ -32,10 +32,10 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search player, team, metric..."
-        className="h-8 w-full rounded-lg bg-surface-container-low pr-12 pl-8 text-[12px] text-on-surface transition-all placeholder:text-on-surface-variant/60 hover:bg-surface-container focus:bg-surface-container-lowest focus:outline-none"
+        className="h-11 w-full rounded-lg bg-surface-container-low pr-12 pl-8 text-[12px] text-on-surface transition-all placeholder:text-on-surface-variant/60 hover:bg-surface-container focus:bg-surface-container-lowest focus:outline-none md:h-8"
         type="text"
       />
-      <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-0.5 rounded bg-surface-container px-1.5 py-0.5 font-data-mono text-[9px] font-semibold tracking-wider text-on-surface-variant uppercase">
+      <div className="absolute top-1/2 right-2 hidden -translate-y-1/2 items-center gap-0.5 rounded bg-surface-container px-1.5 py-0.5 font-data-mono text-[9px] font-semibold tracking-wider text-on-surface-variant uppercase md:flex">
         ⌘K
       </div>
     </div>

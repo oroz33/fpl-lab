@@ -16,7 +16,7 @@ export function GameweekRange({
   const options = Array.from({ length: max }, (_, i) => i + 1);
 
   return (
-    <div className="inline-flex items-center gap-space-xs rounded-lg bg-surface-container-low px-space-md py-1">
+    <div className="inline-flex min-h-11 shrink-0 items-center gap-space-xs rounded-lg bg-surface-container-low px-space-md py-1 md:min-h-0">
       <span className="text-[10px] font-bold tracking-wider text-on-surface-variant uppercase">
         Gameweek
       </span>

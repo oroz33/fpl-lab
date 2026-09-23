@@ -13,7 +13,7 @@ export function TeamFilter({
 }) {
   return (
     <div className="relative">
-      <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg bg-surface-container-low px-space-md text-[13px] text-on-surface transition-colors hover:bg-surface-container">
+      <label className="inline-flex h-11 min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-surface-container-low px-space-md text-[13px] text-on-surface transition-colors hover:bg-surface-container md:h-8 md:min-h-0">
         <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
         <select
           className="cursor-pointer appearance-none bg-transparent pr-1 text-[14px] font-semibold outline-none"

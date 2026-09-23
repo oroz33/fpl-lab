@@ -165,7 +165,7 @@ export function H2HCompareView() {
 
   return (
     <div className="flex w-full flex-col">
-      <div className="flex w-full flex-col justify-between gap-space-md bg-surface-container-lowest px-space-xl py-space-md shadow-[0_1px_4px_rgba(0,0,0,0.02)] md:flex-row md:items-center">
+      <div className="flex w-full flex-col justify-between gap-space-md bg-surface-container-lowest px-3 py-space-md shadow-[0_1px_4px_rgba(0,0,0,0.02)] md:flex-row md:items-center md:px-space-xl">
         <div className="flex flex-col">
           <h1 className="text-[20px] font-bold tracking-tight text-on-surface">
             H2H Player Comparison
@@ -182,7 +182,7 @@ export function H2HCompareView() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[1680px] space-y-space-lg p-space-xl">
+      <div className="mx-auto w-full max-w-[1680px] space-y-space-lg p-3 md:p-space-xl">
         {error ? (
           <div className="rounded-lg bg-error-container px-space-md py-space-sm text-[13px] text-on-error-container">
             {error}

@@ -132,7 +132,7 @@ export function Dashboard() {
         type="button"
         onClick={() => setView("players")}
         className={cn(
-          "flex items-center gap-2 rounded-lg px-space-xl py-1.5 text-[14px] font-semibold transition-all",
+          "flex min-h-11 items-center gap-2 rounded-lg px-space-xl py-1.5 text-[14px] font-semibold transition-all md:min-h-0",
           view === "players"
             ? "bg-primary text-on-primary shadow-sm"
             : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
@@ -145,7 +145,7 @@ export function Dashboard() {
         type="button"
         onClick={() => setView("teams")}
         className={cn(
-          "flex items-center gap-2 rounded-lg px-space-xl py-1.5 text-[14px] font-semibold transition-all",
+          "flex min-h-11 items-center gap-2 rounded-lg px-space-xl py-1.5 text-[14px] font-semibold transition-all md:min-h-0",
           view === "teams"
             ? "bg-primary text-on-primary shadow-sm"
             : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
@@ -186,36 +186,38 @@ export function Dashboard() {
     ) : null;
 
   return (
-    <div className="mx-auto w-full max-w-[1720px] space-y-space-md px-space-xl py-space-lg">
-      <div className="space-y-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-[0_2px_12px_rgba(11,28,48,0.04)]">
-        <div className="flex flex-wrap items-center justify-between gap-space-md xl:flex-nowrap">
-          <div className="flex flex-wrap items-center gap-space-md">
-            <GameweekRange
-              from={fromGw}
-              to={toGw}
-              max={Math.max(maxGw, 3)}
-              onChange={(f, t) => {
-                setFromGw(f);
-                setToGw(t);
-              }}
-            />
-            <PositionFilter
-              value={position}
-              onChange={setPosition}
-              counts={positionCounts}
-            />
-            <TeamFilter
-              teams={meta?.teams ?? []}
-              selected={teams}
-              onChange={setTeams}
-            />
+    <div className="mx-auto w-full max-w-[1720px] space-y-space-md p-3 md:px-space-xl md:py-space-lg">
+      <div className="space-y-space-md rounded-xl bg-surface-container-lowest p-3 shadow-[0_2px_12px_rgba(11,28,48,0.04)] md:p-space-lg">
+        <div className="flex flex-col gap-space-md md:flex-row md:flex-wrap md:items-center md:justify-between xl:flex-nowrap">
+          <div className="no-scrollbar flex max-w-full flex-col gap-space-sm overflow-x-auto md:flex-row md:flex-wrap md:items-center md:gap-space-md md:overflow-visible">
+            <div className="no-scrollbar flex max-w-full items-center gap-space-md overflow-x-auto md:overflow-visible">
+              <GameweekRange
+                from={fromGw}
+                to={toGw}
+                max={Math.max(maxGw, 3)}
+                onChange={(f, t) => {
+                  setFromGw(f);
+                  setToGw(t);
+                }}
+              />
+              <PositionFilter
+                value={position}
+                onChange={setPosition}
+                counts={positionCounts}
+              />
+              <TeamFilter
+                teams={meta?.teams ?? []}
+                selected={teams}
+                onChange={setTeams}
+              />
+            </div>
             {view === "players" && (
               <button
                 type="button"
                 title="Show Favorites Only"
                 onClick={() => setShowFavoritesOnly((v) => !v)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-space-md py-1 text-[11px] font-semibold tracking-[0.02em] uppercase transition-all",
+                  "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-space-md py-1 text-[11px] font-semibold tracking-[0.02em] uppercase transition-all md:min-h-0",
                   showFavoritesOnly
                     ? "bg-primary text-on-primary shadow-sm"
                     : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
@@ -242,7 +244,7 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="flex w-full items-center justify-between gap-space-md xl:w-auto xl:justify-end">
+          <div className="flex w-full items-center justify-between gap-space-md md:w-auto xl:justify-end">
             <SearchBar value={query} onChange={setQuery} />
           </div>
         </div>
