@@ -87,7 +87,7 @@ function createBaseCols({
             <Link
               href={`/h2h?a=${encodeURIComponent(r.id)}`}
               title="Compare in H2H"
-              className="shrink-0 rounded p-0.5 text-on-surface-variant opacity-0 transition-opacity hover:bg-surface-container hover:text-on-surface group-hover:opacity-100"
+              className="hidden shrink-0 rounded p-0.5 text-on-surface-variant opacity-0 transition-opacity hover:bg-surface-container hover:text-on-surface group-hover:opacity-100 md:inline-flex"
               onClick={(e) => e.stopPropagation()}
             >
               <GitCompareArrows className="h-3.5 w-3.5" />

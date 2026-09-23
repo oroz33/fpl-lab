@@ -73,11 +73,11 @@ function isFixturesCol<T>(col: ColumnDef<T>): boolean {
 }
 
 function isIdentityStickyCol<T>(col: ColumnDef<T>): boolean {
-  return col.key === "name" || col.key === "teamShort";
+  return col.key === "name";
 }
 
-function isStickyCol<T>(col: ColumnDef<T>, identityOnly: boolean): boolean {
-  if (identityOnly) return isIdentityStickyCol(col);
+function isStickyCol<T>(col: ColumnDef<T>, nameOnly: boolean): boolean {
+  if (nameOnly) return isIdentityStickyCol(col);
   return Boolean(col.sticky) || col.key === "name" || isFixturesCol(col);
 }
 
@@ -86,6 +86,7 @@ function isAvgFdrCol<T>(col: ColumnDef<T>): boolean {
 }
 
 const DEFAULT_IDENTITY_WIDTH = 195;
+const MOBILE_NAME_WIDTH = 130;
 const FIXTURES_WIDTH_3 = 168;
 const FIXTURES_WIDTH_5 = 320;
 const MD_UP_QUERY = "(min-width: 768px)";
@@ -115,17 +116,19 @@ type StickyLayout = {
 function buildStickyLayout<T>(
   columns: ColumnDef<T>[],
   horizon: FixtureHorizon,
-  identityOnly: boolean
+  nameOnly: boolean
 ): Map<string, StickyLayout> {
   const fixturesWidth = horizon === 5 ? FIXTURES_WIDTH_5 : FIXTURES_WIDTH_3;
   const layout = new Map<string, StickyLayout>();
   let left = 0;
-  const stickyCols = columns.filter((col) => isStickyCol(col, identityOnly));
+  const stickyCols = columns.filter((col) => isStickyCol(col, nameOnly));
 
   stickyCols.forEach((col, index) => {
-    const width = isFixturesCol(col)
-      ? fixturesWidth
-      : (col.stickyWidth ?? DEFAULT_IDENTITY_WIDTH);
+    const width = nameOnly
+      ? MOBILE_NAME_WIDTH
+      : isFixturesCol(col)
+        ? fixturesWidth
+        : (col.stickyWidth ?? DEFAULT_IDENTITY_WIDTH);
     layout.set(col.key, {
       left,
       width,
@@ -398,16 +401,17 @@ export function DataTable<T extends { id: string }>({
                         : undefined
                     }
                     className={cn(
-                      "whitespace-nowrap px-space-sm py-cell-py",
+                      "whitespace-nowrap px-1.5 py-cell-py md:px-space-sm",
+                      fixtures && "hidden md:table-cell",
                       sticky &&
                         cn(
-                          "sticky bg-primary px-space-md",
+                          "sticky max-w-[130px] bg-primary px-1.5 md:max-w-none md:px-space-md",
                           sticky.isLast ? "z-[32]" : "z-30",
                           fixtures && "overflow-hidden",
                           sticky.isLast &&
                             "shadow-[6px_0_12px_-3px_rgba(0,0,0,0.35)]"
                         ),
-                      numeric && !avgFdr && "min-w-[55px] text-center",
+                      numeric && !avgFdr && "min-w-[48px] text-center md:min-w-[55px]",
                       avgFdr && "w-[84px] min-w-[84px] shrink-0 text-center",
                       filters[col.key] && "bg-primary-container text-tertiary-fixed"
                     )}
@@ -569,10 +573,11 @@ export function DataTable<T extends { id: string }>({
                         key={col.key}
                         data-col-key={col.key}
                         className={cn(
-                          "whitespace-nowrap px-space-sm py-cell-py text-on-surface",
+                          "whitespace-nowrap px-1.5 py-cell-py text-on-surface md:px-space-sm",
+                          isFixturesCol(col) && "hidden md:table-cell",
                           sticky &&
                             cn(
-                              "sticky bg-surface-container-lowest px-space-md group-hover:bg-surface-container-low",
+                              "sticky max-w-[130px] truncate bg-surface-container-lowest px-1.5 group-hover:bg-surface-container-low md:max-w-none md:px-space-md",
                               sticky.isLast ? "z-[22]" : "z-20",
                               isFixturesCol(col) && "overflow-hidden",
                               sticky.isLast &&
