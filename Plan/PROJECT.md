@@ -2,8 +2,8 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.8.0` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
-**עודכן לאחרונה:** Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Next 3|5 layout · Column filter precision · Favorite Players · Metric header tooltips · Fixture Tracker
+**גרסה נוכחית:** `v1.8.1` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
+**עודכן לאחרונה:** My Team zero-GW squad fallback · Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Next 3|5 layout · Column filter precision · Favorite Players · Metric header tooltips · Fixture Tracker
 
 ---
 
@@ -508,10 +508,11 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.8.0**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.8.1**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.8.1 | My Team zero-GW fallback | סגל 15 נשאר גלוי תחת כל פילטר GW; roster מלא + `buildEmptyPlayerRow` כשאין דלתא/דקות; טבלת Last Fixtures מציגה `—` ל־apps/mins=0 (למשל João Pedro ב־GW5) |
 | v1.8.0 | My Team page | Route `/my-team` + sidebar (`Users`); סגל ב־`localStorage` (`fpl_lab_my_team`); מגבלות עמדה/קבוצה; Mini-bar + SquadDialog; Tab 1 Last Fixtures Stats (sticky + heatmap ליגה מלאה + empty slots) |
 | v1.8.0 | News & Team Intel | Tab 2 על `/my-team`: `MyTeamNewsGrid` · Expected XI / Fitness / Press Quote · mock `data/player-news.json` + `resolvePlayerIntel` · badges emerald / caution / rose |
 | v1.8.0 | Shared heatmap helpers | חילוץ `percentileAt` / heatmap classes ל־`lib/heatmap.ts`; DataTable מייבא משם |
@@ -571,4 +572,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.8.0 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.8.1 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*

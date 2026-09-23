@@ -15,6 +15,7 @@ import { MyTeamLastFixturesTable } from "@/components/my-team/MyTeamLastFixtures
 import { MyTeamNewsGrid } from "@/components/my-team/MyTeamNewsGrid";
 import { SquadDialog } from "@/components/my-team/SquadDialog";
 import { SquadMiniBar } from "@/components/my-team/SquadMiniBar";
+import { buildEmptyPlayerRow } from "@/lib/squad/fallback-row";
 import { getMissingSlots, sortSquadPlayers } from "@/lib/squad/rules";
 import { useMyTeamSquad } from "@/lib/squad/use-my-team";
 import type {
@@ -40,6 +41,7 @@ export function MyTeamView() {
 
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [rosterPlayers, setRosterPlayers] = useState<PlayerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromGw, setFromGw] = useState(1);
@@ -50,6 +52,8 @@ export function MyTeamView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lockPosition, setLockPosition] = useState<Position | null>(null);
 
+  const maxGw = meta?.maxGameweek ?? 3;
+
   const loadMeta = useCallback(async () => {
     const res = await fetch("/api/meta");
     const data = (await res.json()) as MetaResponse;
@@ -57,6 +61,23 @@ export function MyTeamView() {
     setToGw((prev) =>
       Math.min(Math.max(prev, data.maxGameweek), data.maxGameweek)
     );
+  }, []);
+
+  const loadRoster = useCallback(async (to: number) => {
+    try {
+      const params = new URLSearchParams({
+        from: "1",
+        to: String(to),
+        position: "All",
+        q: "",
+      });
+      const res = await fetch(`/api/stats?${params}`);
+      if (!res.ok) throw new Error("Failed to load roster");
+      const data = (await res.json()) as StatsResponse;
+      setRosterPlayers(data.players);
+    } catch {
+      // Keep last good roster; range stats still drive the table when present
+    }
   }, []);
 
   const loadStats = useCallback(async () => {
@@ -85,6 +106,11 @@ export function MyTeamView() {
   }, [loadMeta, refreshKey]);
 
   useEffect(() => {
+    if (!meta) return;
+    loadRoster(meta.maxGameweek).catch(() => undefined);
+  }, [meta, loadRoster, refreshKey]);
+
+  useEffect(() => {
     const t = setTimeout(() => {
       loadStats().catch(() => undefined);
     }, 150);
@@ -104,14 +130,20 @@ export function MyTeamView() {
 
   const squadPlayers = useMemo(() => {
     if (!hydrated || !playerIds.length) return [] as PlayerRow[];
-    const byId = new Map(leaguePlayers.map((p) => [p.id, p]));
+    const rangeById = new Map(leaguePlayers.map((p) => [p.id, p]));
+    const rosterById = new Map(rosterPlayers.map((p) => [p.id, p]));
     const resolved: PlayerRow[] = [];
     for (const id of playerIds) {
-      const row = byId.get(id);
-      if (row) resolved.push(row);
+      const live = rangeById.get(id);
+      if (live) {
+        resolved.push(live);
+        continue;
+      }
+      const base = rosterById.get(id);
+      if (base) resolved.push(buildEmptyPlayerRow(base));
     }
     return sortSquadPlayers(resolved);
-  }, [hydrated, playerIds, leaguePlayers]);
+  }, [hydrated, playerIds, leaguePlayers, rosterPlayers]);
 
   const missingSlots = useMemo(
     () => getMissingSlots(squadPlayers),
@@ -125,8 +157,6 @@ export function MyTeamView() {
     setLockPosition(position ?? null);
     setDialogOpen(true);
   }, []);
-
-  const maxGw = meta?.maxGameweek ?? 3;
 
   return (
     <div className="mx-auto w-full max-w-[1720px] space-y-space-md p-3 md:px-space-xl md:py-space-lg">
@@ -284,7 +314,7 @@ export function MyTeamView() {
       <SquadDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        players={leaguePlayers}
+        players={rosterPlayers.length > 0 ? rosterPlayers : leaguePlayers}
         squadPlayers={squadPlayers}
         lockPosition={lockPosition}
         onAdd={(p) => addPlayer(p.id)}

@@ -2,7 +2,7 @@
 
 Local Fantasy Premier League analysis dashboard with **Precision Analytics** — a high-density sports-terminal UI inspired by Opta / StatsPerform, powered by a weekly cumulative → delta Opta ingestion pipeline.
 
-**Current version:** `v1.8.0`
+**Current version:** `v1.8.1`
 
 ## Quick start
 

@@ -248,7 +248,9 @@ export function MyTeamLastFixturesTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container text-[12px]">
-              {squadPlayers.map((row) => (
+              {squadPlayers.map((row) => {
+                const noMinutes = row.apps === 0 && row.mins === 0;
+                return (
                 <tr
                   key={row.id}
                   className="group h-table-row-h transition-colors duration-75 hover:bg-surface-container-low"
@@ -303,6 +305,16 @@ export function MyTeamLastFixturesTable({
                     <AvgFdrCell fixtures={row.nextFixtures} />
                   </td>
                   {METRIC_COLS.slice(0, 9).map((col) => {
+                    if (noMinutes) {
+                      return (
+                        <td
+                          key={col.key}
+                          className="px-cell-px text-right font-data-mono text-[12px] text-outline tnum tabular-nums"
+                        >
+                          —
+                        </td>
+                      );
+                    }
                     const raw = col.get(row);
                     const heat =
                       col.heatmap && typeof raw === "number"
@@ -324,15 +336,33 @@ export function MyTeamLastFixturesTable({
                     );
                   })}
                   <td className="px-cell-px text-center font-data-mono text-[11px] tnum">
-                    <XGIVarianceBadge
-                      variance={row.xGiVariance}
-                      actualReturns={row.actualReturns}
-                      gi={row.gi}
-                      xGI={row.xGI}
-                      status={row.regressionStatus}
-                    />
+                    {noMinutes ? (
+                      <span className="text-outline">—</span>
+                    ) : (
+                      <XGIVarianceBadge
+                        variance={row.xGiVariance}
+                        actualReturns={row.actualReturns}
+                        gi={row.gi}
+                        xGI={row.xGI}
+                        status={row.regressionStatus}
+                      />
+                    )}
                   </td>
                   {METRIC_COLS.slice(9).map((col) => {
+                    if (noMinutes) {
+                      const isPens = col.key === "penaltyGoals";
+                      return (
+                        <td
+                          key={col.key}
+                          className={cn(
+                            "px-cell-px font-data-mono text-[12px] text-outline tnum tabular-nums",
+                            isPens ? "text-center" : "text-right"
+                          )}
+                        >
+                          —
+                        </td>
+                      );
+                    }
                     const raw = col.get(row);
                     const heat =
                       col.heatmap && typeof raw === "number"
@@ -362,7 +392,8 @@ export function MyTeamLastFixturesTable({
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
 
               {missingSlots.map((slot) => (
                 <tr
