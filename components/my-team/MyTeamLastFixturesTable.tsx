@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { PlusCircle } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, PlusCircle } from "lucide-react";
 import { XGIVarianceBadge } from "@/components/analytics/xgi-variance-badge";
 import {
+  averageOverallFdr,
   AvgFdrCell,
   FixtureHorizonProvider,
   FixturesCell,
@@ -108,6 +109,32 @@ const METRIC_COLS: MetricCol[] = [
 
 const COL_COUNT = 5 + METRIC_COLS.length + 1; // sticky + metrics + Δ xGI
 
+type SortKey = MetricKey | "avgFdr" | "xGiVariance";
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
+
+const METRIC_GETTERS = new Map(METRIC_COLS.map((c) => [c.key, c.get]));
+
+function getSortValue(
+  row: PlayerRow,
+  key: SortKey,
+  horizon: FixtureHorizon
+): number | null {
+  if (key === "avgFdr") return averageOverallFdr(row.nextFixtures, horizon);
+  if (key === "xGiVariance") return row.xGiVariance;
+  return METRIC_GETTERS.get(key)?.(row) ?? null;
+}
+
+function SortIcon({ active, dir }: { active: boolean; dir?: "asc" | "desc" }) {
+  if (active) {
+    return dir === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 shrink-0 opacity-90" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 shrink-0 opacity-90" />
+    );
+  }
+  return <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />;
+}
+
 function stickyTh(last = false): string {
   return cn(
     "sticky z-30 bg-primary px-cell-px",
@@ -135,6 +162,7 @@ export function MyTeamLastFixturesTable({
   onSelectSlot: (position?: SquadMissingSlot["position"]) => void;
 }) {
   const [horizon, setHorizon] = useState<FixtureHorizon>(3);
+  const [sort, setSort] = useState<SortState>(null);
 
   const setHorizonSynced = (h: FixtureHorizon) => {
     syncFixtureHorizon(h);
@@ -143,6 +171,14 @@ export function MyTeamLastFixturesTable({
 
   // Keep module sync in sync for any getValue helpers
   syncFixtureHorizon(horizon);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "desc" };
+      if (prev.dir === "desc") return { key, dir: "asc" };
+      return null;
+    });
+  }
 
   const heatMaps = useMemo(() => {
     const maps = new Map<string, ReturnType<typeof buildHeatThresholds>>();
@@ -157,6 +193,46 @@ export function MyTeamLastFixturesTable({
     }
     return maps;
   }, [leaguePlayers]);
+
+  const sortedPlayers = useMemo(() => {
+    if (!sort) return squadPlayers;
+    const copy = [...squadPlayers];
+    copy.sort((a, b) => {
+      const av = getSortValue(a, sort.key, horizon);
+      const bv = getSortValue(b, sort.key, horizon);
+      const an = av === null || av === undefined ? -Infinity : av;
+      const bn = bv === null || bv === undefined ? -Infinity : bv;
+      return sort.dir === "asc" ? an - bn : bn - an;
+    });
+    return copy;
+  }, [squadPlayers, sort, horizon]);
+
+  function renderSortableTh(
+    key: SortKey,
+    label: string,
+    className: string,
+    style?: CSSProperties,
+    align: "right" | "center" = "right"
+  ) {
+    const active = sort?.key === key;
+    return (
+      <th
+        className={cn(className, "cursor-pointer select-none")}
+        style={style}
+        onClick={() => toggleSort(key)}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-0.5",
+            align === "center" ? "justify-center" : "justify-end"
+          )}
+        >
+          <span>{label}</span>
+          <SortIcon active={active} dir={sort?.dir} />
+        </div>
+      </th>
+    );
+  }
 
   return (
     <FixtureHorizonProvider horizon={horizon} setHorizon={setHorizonSynced}>
@@ -213,42 +289,47 @@ export function MyTeamLastFixturesTable({
                     </div>
                   </div>
                 </th>
-                <th
-                  className={cn(
-                    stickyTh(true),
-                    "w-[66px] text-right"
-                  )}
-                  style={{ left: STICKY.fdr.left, minWidth: STICKY.fdr.width, width: STICKY.fdr.width }}
-                >
-                  FDR
-                </th>
-                {METRIC_COLS.slice(0, 9).map((col) => (
-                  <th
-                    key={col.key}
-                    className={cn("px-cell-px text-right", col.width)}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-                <th className="w-[72px] px-cell-px text-center">
-                  Δ xGI
-                </th>
-                {METRIC_COLS.slice(9).map((col) => (
-                  <th
-                    key={col.key}
-                    className={cn(
+                {renderSortableTh(
+                  "avgFdr",
+                  "FDR",
+                  cn(stickyTh(true), "w-[66px] text-right"),
+                  {
+                    left: STICKY.fdr.left,
+                    minWidth: STICKY.fdr.width,
+                    width: STICKY.fdr.width,
+                  }
+                )}
+                {METRIC_COLS.slice(0, 9).map((col) =>
+                  renderSortableTh(
+                    col.key,
+                    col.label,
+                    cn("px-cell-px text-right", col.width)
+                  )
+                )}
+                {renderSortableTh(
+                  "xGiVariance",
+                  "Δ xGI",
+                  "w-[72px] px-cell-px text-center",
+                  undefined,
+                  "center"
+                )}
+                {METRIC_COLS.slice(9).map((col) =>
+                  renderSortableTh(
+                    col.key,
+                    col.label,
+                    cn(
                       "px-cell-px",
                       col.key === "penaltyGoals" ? "text-center" : "text-right",
                       col.width
-                    )}
-                  >
-                    {col.label}
-                  </th>
-                ))}
+                    ),
+                    undefined,
+                    col.key === "penaltyGoals" ? "center" : "right"
+                  )
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container text-[12px]">
-              {squadPlayers.map((row) => {
+              {sortedPlayers.map((row) => {
                 const noMinutes = row.apps === 0 && row.mins === 0;
                 return (
                 <tr
