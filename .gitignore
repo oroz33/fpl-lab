@@ -52,6 +52,7 @@ debug-*.log
 
 # Runtime store — production uses Vercel Blob; keep local copy out of git
 /data/store.json
+/data/.blob-store-imported
 
 .vercel
 .env*.local

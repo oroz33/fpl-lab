@@ -21,7 +21,9 @@ import {
 
 const ADMIN_SECRET_KEY = "fpl-lab-admin-secret";
 
-async function readFilesAsBatch(fileList: FileList | null): Promise<{
+async function readFilesAsBatch(
+  fileList: FileList | File[] | null
+): Promise<{
   ok: ParsedBatchFile[];
   errors: string[];
 }> {
@@ -144,6 +146,37 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
     if (errors.length) {
       setStatus(`Some files failed:\n${errors.join("\n")}`);
     }
+  }
+
+  async function handleFolder(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    const skipped: string[] = [];
+    const jsonFiles: File[] = [];
+    for (const file of Array.from(fileList)) {
+      if (file.name.toLowerCase().endsWith(".json")) jsonFiles.push(file);
+      else skipped.push(`${file.name}: skipped (not JSON)`);
+    }
+    const { ok, errors } = await readFilesAsBatch(jsonFiles);
+    const seasons = ok.filter((f) => f.kind === "seasonStats");
+    const xgs = ok.filter((f) => f.kind === "expectedGoals");
+    const unknown = ok.filter((f) => f.kind === "unknown");
+    if (seasons.length) {
+      setSeasonBatch(seasons);
+      setSeasonText(
+        seasons.length === 1 ? JSON.stringify(seasons[0].raw, null, 2) : ""
+      );
+    }
+    if (xgs.length) {
+      setXgBatch(xgs);
+      setXgText(xgs.length === 1 ? JSON.stringify(xgs[0].raw, null, 2) : "");
+    }
+    const notes = [
+      `Folder: ${seasons.length} SeasonStats, ${xgs.length} ExpectedGoals.`,
+      ...unknown.map((f) => `${f.filename}: unrecognized Opta JSON`),
+      ...skipped,
+      ...errors,
+    ];
+    setStatus(notes.join("\n"));
   }
 
   async function handleXgFiles(fileList: FileList | null) {
@@ -269,30 +302,6 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
     }
   }
 
-  async function loadSample() {
-    if (writeProtected && !adminSecret.trim()) {
-      setStatus("Admin secret required to seed data in production.");
-      return;
-    }
-    setBusy(true);
-    setStatus(null);
-    try {
-      const res = await fetch("/api/seed", {
-        method: "POST",
-        headers: adminHeaders(adminSecret, writeProtected),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Seed failed");
-      setStatus(`Loaded Man City baseline GW1–3 (${data.playerCount} players).`);
-      onIngested();
-      setTimeout(() => setOpen(false), 800);
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Seed failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const batchCount = pairBatchFiles(seasonBatch, xgBatch).length;
   const writesLocked = writeProtected && !adminSecret.trim();
 
@@ -311,8 +320,8 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
         <DialogHeader>
           <DialogTitle>Weekly data ingest</DialogTitle>
           <DialogDescription>
-            Upload one team via paste, or multi-select many SeasonStats /
-            ExpectedGoals JSON files. Files are paired by team id and ingested
+            Upload one team via paste, multi-select JSON files, or choose a
+            folder such as GameWeek7. Files are paired by team id and ingested
             with the same through-gameweek. After a local ingest looks good, push
             the whole store to production with{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-[0.85em]">
@@ -338,7 +347,7 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
               <Input
                 type="password"
                 autoComplete="current-password"
-                placeholder="Required for upload / clear / seed"
+                placeholder="Required for upload / clear"
                 value={adminSecret}
                 onChange={(e) => persistSecret(e.target.value)}
               />
@@ -361,6 +370,22 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
               onChange={(e) => setThroughGw(Number(e.target.value))}
             />
           </label>
+
+          <div className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Folder (GameWeek, SeasonStats, or Expected Goals)
+            </span>
+            <Input
+              type="file"
+              multiple
+              // The directory attributes are not on the React input typings.
+              {...{ webkitdirectory: "", directory: "" }}
+              onChange={(e) => {
+                void handleFolder(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
 
           <div className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -433,13 +458,6 @@ export function UploadPortal({ onIngested }: { onIngested: () => void }) {
               Clear all data
             </Button>
             <div className="flex flex-wrap gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={loadSample}
-                disabled={busy || writesLocked}
-              >
-                Load Man City GW1–3
-              </Button>
               <Button onClick={ingest} disabled={busy || writesLocked}>
                 {busy
                   ? "Ingesting…"

@@ -56,6 +56,14 @@ function addStats(a: StatMap, b: StatMap): StatMap {
   return out;
 }
 
+function scaleStats(stats: StatMap, factor: number): StatMap {
+  const out = emptyStats();
+  for (const k of NUMERIC_KEYS) {
+    out[k] = (stats[k] ?? 0) * factor;
+  }
+  return out;
+}
+
 interface WeekDelta {
   /** Inclusive start of the week block this delta represents */
   gwStart: number;
@@ -72,6 +80,8 @@ interface WeekDelta {
  * Build per-period deltas for a team from cumulative snapshots.
  * Baseline through GW3 becomes a single inseparable block [1,3].
  * Later weeks: delta(n) = cum(n) - cum(n-1) for single week n.
+ * If games played jump by more than that week span, the extra matches are
+ * split evenly back across the missing weeks so one week is not two games.
  */
 export function buildTeamDeltas(snapshots: CumulativeSnapshot[]): WeekDelta[] {
   if (snapshots.length === 0) return [];
@@ -122,6 +132,37 @@ export function buildTeamDeltas(snapshots: CumulativeSnapshot[]): WeekDelta[] {
       }
     }
 
+    const labelSpan = gwEnd - gwStart + 1;
+    const gameDelta = Math.round(Number(teamStats.gamesPlayed ?? 0));
+    if (prev && gameDelta > labelSpan && gameDelta > 1) {
+      const firstGw = Math.max(1, gwEnd - gameDelta + 1);
+      for (let gw = firstGw; gw <= gwEnd; gw++) {
+        const isLast = gw === gwEnd;
+        const weekPlayers = new Map<
+          string,
+          { meta: CumulativeSnapshot["players"][number]; stats: StatMap }
+        >();
+        for (const [id, entry] of players) {
+          const apps = Number(entry.stats.apps ?? 0);
+          if (apps >= gameDelta) {
+            weekPlayers.set(id, { meta: entry.meta, stats: scaleStats(entry.stats, 1 / gameDelta) });
+          } else if (isLast) {
+            weekPlayers.set(id, entry);
+          }
+        }
+        deltas.push({
+          gwStart: gw,
+          gwEnd: gw,
+          teamId: curr.teamId,
+          teamName: curr.teamName,
+          shortName: curr.shortName,
+          teamStats: scaleTeam(teamStats, 1 / gameDelta),
+          players: weekPlayers,
+        });
+      }
+      continue;
+    }
+
     deltas.push({
       gwStart,
       gwEnd,
@@ -147,19 +188,27 @@ function emptyTeam(): StatMap {
   };
 }
 
+const TEAM_NUMERIC_KEYS = ["gamesPlayed", "goals", "xG", "goalsConceded", "xGC", "cleanSheets"] as const;
+
 function subtractTeam(curr: StatMap, prev: StatMap): StatMap {
-  const keys = ["gamesPlayed", "goals", "xG", "goalsConceded", "xGC", "cleanSheets"];
   const out: StatMap = {};
-  for (const k of keys) {
+  for (const k of TEAM_NUMERIC_KEYS) {
     out[k] = (curr[k] ?? 0) - (prev[k] ?? 0);
   }
   return out;
 }
 
-function addTeam(a: StatMap, b: StatMap): StatMap {
-  const keys = ["gamesPlayed", "goals", "xG", "goalsConceded", "xGC", "cleanSheets"];
+function scaleTeam(stats: StatMap, factor: number): StatMap {
   const out: StatMap = {};
-  for (const k of keys) {
+  for (const k of TEAM_NUMERIC_KEYS) {
+    out[k] = (stats[k] ?? 0) * factor;
+  }
+  return out;
+}
+
+function addTeam(a: StatMap, b: StatMap): StatMap {
+  const out: StatMap = {};
+  for (const k of TEAM_NUMERIC_KEYS) {
     out[k] = (a[k] ?? 0) + (b[k] ?? 0);
   }
   return out;

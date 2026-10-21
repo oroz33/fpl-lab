@@ -16,6 +16,8 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 const SAMPLE_SEASON = path.join(DATA_DIR, "samples", "SeasonStats - Man City.json");
 const SAMPLE_XG = path.join(DATA_DIR, "samples", "ExpectedGoals - Man City.json");
+/** Written after the one-time Blob → filesystem copy. Keeps later local ingests. */
+const BLOB_IMPORT_MARKER = path.join(DATA_DIR, ".blob-store-imported");
 /** Fixed pathname in Vercel Blob (public Hobby store). */
 const STORE_BLOB_PATH = "fpl-lab/store.json";
 
@@ -27,17 +29,24 @@ const EMPTY_STORE: DataStore = { snapshots: [], seeded: false };
  * across serverless instances.
  */
 let memoryCache: DataStore | null = null;
+let localBlobMigration: Promise<void> | null = null;
+let localBlobMigrationFailed = false;
+
+function isVercelRuntime(): boolean {
+  // `vercel env pull` writes VERCEL=1 into .env.local, so that flag is set
+  // during `next dev` too. Deployed Vercel runs with NODE_ENV=production.
+  return process.env.NODE_ENV === "production" && Boolean(process.env.VERCEL);
+}
 
 export function isBlobStoreEnabled(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  // `.env.local` keeps BLOB_READ_WRITE_TOKEN for `npm run sync:prod`.
+  // Using it in `next dev` sends writes to Blob, which rejects them when
+  // OIDC is not enabled for the development environment.
+  return isVercelRuntime() && Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
 export function getStorageMode(): "blob" | "filesystem" {
   return isBlobStoreEnabled() ? "blob" : "filesystem";
-}
-
-function isVercelRuntime(): boolean {
-  return Boolean(process.env.VERCEL);
 }
 
 function assertPersistentWritesAllowed(): void {
@@ -168,7 +177,92 @@ async function writeStoreToBlob(store: DataStore): Promise<void> {
   });
 }
 
+function snapshotMergeKey(snapshot: CumulativeSnapshot): string {
+  return `${snapshot.teamId}::${snapshot.throughGameweek}`;
+}
+
+/** Union by team + throughGameweek. Blob wins when both copies exist. */
+function mergeStores(local: DataStore, blob: DataStore): DataStore {
+  const localNorm = normalizeStore(local);
+  const blobNorm = normalizeStore(blob);
+  const map = new Map<string, CumulativeSnapshot>();
+  for (const snapshot of localNorm.snapshots) {
+    map.set(snapshotMergeKey(snapshot), snapshot);
+  }
+  for (const snapshot of blobNorm.snapshots) {
+    map.set(snapshotMergeKey(snapshot), snapshot);
+  }
+  return {
+    snapshots: [...map.values()].sort(
+      (a, b) => a.teamId.localeCompare(b.teamId) || a.throughGameweek - b.throughGameweek
+    ),
+    seeded: Boolean(blobNorm.seeded || localNorm.seeded),
+  };
+}
+
+async function blobImportMarkerExists(): Promise<boolean> {
+  try {
+    await fs.access(BLOB_IMPORT_MARKER);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One-time copy of the Blob store into data/store.json.
+ * Later local ingests stay on disk: the marker stops Blob from winning again.
+ * A failed read does not write an empty store and does not clear the marker.
+ */
+async function migrateBlobStoreToFs(): Promise<void> {
+  if (isVercelRuntime() || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  if (await blobImportMarkerExists()) return;
+
+  let blobStore: DataStore;
+  try {
+    blobStore = await readStoreFromBlob();
+  } catch (err) {
+    localBlobMigrationFailed = true;
+    console.error(
+      "Blob → data/store.json copy failed. Local store was left unchanged and Man City seed was skipped.",
+      err
+    );
+    return;
+  }
+
+  try {
+    const localStore = await readStoreFromFs();
+    const blobCount = blobStore.snapshots?.length ?? 0;
+    const localCount = localStore.snapshots?.length ?? 0;
+    if (blobCount === 0 && localCount === 0) return;
+
+    const merged = mergeStores(localStore, blobStore);
+    await writeStoreToFs(merged);
+    await fs.writeFile(BLOB_IMPORT_MARKER, new Date().toISOString(), "utf-8");
+    memoryCache = null;
+    console.log(
+      `Copied Blob store into data/store.json (${merged.snapshots.length} snapshots; Blob kept on team+gameweek conflicts).`
+    );
+  } catch (err) {
+    localBlobMigrationFailed = true;
+    console.error(
+      "Blob → data/store.json copy failed while writing. Man City seed was skipped.",
+      err
+    );
+  }
+}
+
+function ensureLocalStoreMigrated(): Promise<void> {
+  if (isVercelRuntime()) return Promise.resolve();
+  if (!localBlobMigration) {
+    localBlobMigration = migrateBlobStoreToFs();
+  }
+  return localBlobMigration;
+}
+
 export async function readStore(options?: { fresh?: boolean }): Promise<DataStore> {
+  await ensureLocalStoreMigrated();
+
   const fresh = options?.fresh || isBlobStoreEnabled();
 
   if (!fresh && memoryCache) {
@@ -303,6 +397,12 @@ export async function ensureSeeded(): Promise<DataStore> {
   let store = await readStore({ fresh: true });
   // seeded=true means "already initialized" (even if user cleared all snapshots)
   if (store.seeded) return store;
+  if (localBlobMigrationFailed) {
+    console.error(
+      "Skipping Man City seed because the Blob copy into data/store.json failed."
+    );
+    return store;
+  }
 
   try {
     store = await seedManCityBaseline();
