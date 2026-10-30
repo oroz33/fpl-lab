@@ -8,7 +8,9 @@ Local Fantasy Premier League analysis dashboard with **Precision Analytics** —
 
 ### One-click start (Windows)
 
-Double-click **`start-dev.bat`** — opens [http://localhost:3000](http://localhost:3000) and runs `npm run dev`. Leave the console open; press **Ctrl+C** to stop.
+Double-click **FPL Dashboard** on the desktop, or **`start-dev.bat`** in this folder.
+
+If the dev server is already running, the browser opens [http://localhost:3000](http://localhost:3000). Otherwise the script installs dependencies when `node_modules` is missing, starts `npm run dev` in the background, waits until the site responds, and then opens the browser. Server output is written to `logs/dev.log`.
 
 ### Manual start
 

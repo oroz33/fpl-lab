@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
+  Download,
   ExternalLink,
   Info,
   Search,
@@ -30,6 +31,39 @@ type TeamsConfig = {
     seasonexpectedgoals: string;
   };
   teams: TeamEntry[];
+};
+
+type DownloadFileEvent = {
+  type: "file";
+  index: number;
+  total: number;
+  feed: string;
+  folder: string;
+  team: string;
+  ok: boolean;
+  bytes?: number;
+  contestant?: string;
+  error?: string;
+  file?: string;
+};
+
+type DownloadDoneEvent = {
+  type: "done";
+  ok: number;
+  failed: string[];
+  stopped: boolean;
+  total: number;
+  gameweek: number;
+  dir: string;
+};
+
+type DownloadLogRow = {
+  index: number;
+  total: number;
+  team: string;
+  feed: string;
+  ok: boolean;
+  detail: string;
 };
 
 function buildUrl(pattern: string, tmcl: string, ctst: string): string {
@@ -61,6 +95,15 @@ export default function OptaBatchPage() {
     "seasonexpectedgoals"
   );
   const [query, setQuery] = useState("");
+  const [gameweek, setGameweek] = useState(1);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    index: number;
+    total: number;
+    team: string;
+  } | null>(null);
+  const [downloadLog, setDownloadLog] = useState<DownloadLogRow[]>([]);
+  const [downloadSummary, setDownloadSummary] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -169,6 +212,95 @@ export default function OptaBatchPage() {
     [config, showToast]
   );
 
+  const downloadGameweek = useCallback(async () => {
+    if (!config || downloading) return;
+    setDownloading(true);
+    setBusy(true);
+    setError(null);
+    setDownloadLog([]);
+    setDownloadSummary(null);
+    setDownloadProgress({ index: 0, total: config.teams.length * 2, team: "" });
+    showToast(`Downloading GameWeek${gameweek}…`);
+
+    const applyLine = (line: string) => {
+      if (!line.trim()) return;
+      const event = JSON.parse(line) as
+        | { type: "start"; total: number }
+        | DownloadFileEvent
+        | DownloadDoneEvent;
+      if (event.type === "start") {
+        setDownloadProgress({ index: 0, total: event.total, team: "" });
+        return;
+      }
+      if (event.type === "file") {
+        setDownloadProgress({
+          index: event.index,
+          total: event.total,
+          team: event.team,
+        });
+        setDownloadLog((prev) => [
+          ...prev,
+          {
+            index: event.index,
+            total: event.total,
+            team: event.team,
+            feed: event.feed,
+            ok: event.ok,
+            detail: event.ok
+              ? `${event.contestant ?? event.team} · ${event.bytes ?? 0} bytes`
+              : (event.error ?? "Failed"),
+          },
+        ]);
+        return;
+      }
+      if (event.type === "done") {
+        if (event.stopped || event.failed.length > 0) {
+          setDownloadSummary(
+            `Stopped at ${event.ok}/${event.total}. Saved files stay in ${event.dir}. ${event.failed.join(" ")}`
+          );
+          showToast(`GameWeek${event.gameweek} stopped after ${event.ok} files`);
+        } else {
+          setDownloadSummary(`Saved ${event.ok}/${event.total} files to ${event.dir}`);
+          showToast(`Saved GameWeek${event.gameweek} (${event.ok} files)`);
+        }
+      }
+    };
+
+    try {
+      const res = await fetch("/api/opta-download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameweek }),
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || !contentType.includes("ndjson") || !res.body) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Download failed (HTTP ${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) applyLine(line);
+      }
+      if (buffer.trim()) applyLine(buffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Download failed";
+      setError(message);
+      setDownloadSummary(message);
+      showToast(message);
+    } finally {
+      setDownloading(false);
+      setBusy(false);
+      setDownloadProgress(null);
+    }
+  }, [config, downloading, gameweek, showToast]);
+
   const copyAll = useCallback(async () => {
     const urls = rows.map((r) => r.apiUrl);
     try {
@@ -238,6 +370,70 @@ export default function OptaBatchPage() {
                   and secure proxies to prevent browser batch blocking.
                 </p>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-space-sm rounded-lg border border-border-boundary bg-surface-container-low p-space-md">
+              <div className="flex flex-wrap items-end gap-space-md">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold tracking-wider text-on-surface-variant uppercase">
+                  GameWeek
+                  <select
+                    value={gameweek}
+                    disabled={downloading}
+                    onChange={(e) => setGameweek(Number(e.target.value))}
+                    className="rounded-lg bg-surface-container-lowest px-space-md py-2 text-[14px] font-semibold text-on-surface shadow-xs outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {Array.from({ length: 38 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>
+                        GameWeek{n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={!config || busy || loading || downloading}
+                  onClick={() => void downloadGameweek()}
+                  className="inline-flex items-center gap-space-sm rounded-lg bg-primary px-space-xl py-2 text-[14px] font-semibold text-on-primary shadow-sm transition-all hover:bg-primary-container active:scale-95 disabled:opacity-50"
+                >
+                  <Download className="h-[18px] w-[18px]" />
+                  {downloading
+                    ? `Downloading ${downloadProgress?.index ?? 0}/${downloadProgress?.total ?? config?.teams.length ?? 0}`
+                    : `Download ${(config?.teams.length ?? 20) * 2} feeds`}
+                </button>
+                <p className="text-[12px] text-on-surface-variant">
+                  Saves to{" "}
+                  <span className="font-data-mono text-on-surface">
+                    data/GameWeek{gameweek}/EXPECTED GOALS
+                  </span>{" "}
+                  and{" "}
+                  <span className="font-data-mono text-on-surface">
+                    data/GameWeek{gameweek}/SEASONSTATS
+                  </span>
+                </p>
+              </div>
+              {downloadProgress && downloadProgress.team && (
+                <p className="font-data-mono text-[12px] text-on-surface">
+                  {downloadProgress.index}/{downloadProgress.total}{" "}
+                  {downloadProgress.team}
+                </p>
+              )}
+              {downloadSummary && (
+                <p className="text-[13px] text-on-surface">{downloadSummary}</p>
+              )}
+              {downloadLog.length > 0 && (
+                <ul className="max-h-48 space-y-1 overflow-y-auto font-data-mono text-[11px]">
+                  {downloadLog.map((row) => (
+                    <li
+                      key={`${row.index}-${row.feed}`}
+                      className={row.ok ? "text-on-surface" : "text-error"}
+                    >
+                      {row.ok ? "OK" : "FAIL"} {row.index}/{row.total} {row.team}{" "}
+                      · {row.feed}
+                      {row.ok ? "" : ` — ${row.detail}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-space-md pt-space-xs">
