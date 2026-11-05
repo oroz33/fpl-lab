@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -76,7 +76,9 @@ function FixtureChip({
     <span
       className={cn(
         "inline-flex items-center justify-center rounded border border-black/10 font-data-mono font-bold tracking-tight tabular-nums whitespace-nowrap text-white",
-        compact ? "px-1 py-px text-[8px]" : "px-1.5 py-0.5 text-[9.5px]",
+        compact
+          ? "px-1 py-px text-[8px] max-md:text-[9px]"
+          : "px-1.5 py-0.5 text-[9.5px] max-md:text-[10px]",
         FDR_COLORS[score] ?? FDR_COLORS[3]
       )}
       title={label}
@@ -133,6 +135,16 @@ export function FixtureTrackerView() {
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<SortState>({ key: "team", dir: "asc" });
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Phone-only initial default: next5. Desktop stays "full". Init once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(min-width: 768px)").matches) {
+      setPreset("next5");
+    }
+  }, []);
 
   function toggleSort(key: SortKey) {
     setSort((prev) => {
@@ -213,6 +225,22 @@ export function FixtureTrackerView() {
     setPage(1);
   }, [pageSize, preset, perspective]);
 
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const sync = () => {
+      const remaining = el.scrollWidth - el.clientWidth - el.scrollLeft;
+      setCanScrollRight(remaining > 2);
+    };
+    sync();
+    el.addEventListener("scroll", sync, { passive: true });
+    window.addEventListener("resize", sync);
+    return () => {
+      el.removeEventListener("scroll", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, [visibleGws, pageRows, preset, loading]);
+
   if (loading) {
     return (
       <div className="p-3 text-[13px] text-on-surface-variant md:p-space-xl">
@@ -290,15 +318,16 @@ export function FixtureTrackerView() {
 
       <div className="flex-1 overflow-auto px-3 py-space-md md:px-space-xl">
         <div className="overflow-hidden rounded-lg border border-border-interior bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-          <div className="overflow-auto">
+          <div className="relative">
+          <div ref={tableScrollRef} className="overflow-auto">
             <table className="w-max min-w-full border-collapse text-left">
               <thead>
                 <tr className="bg-[#0B132B]">
-                  <th className="freeze-col sticky left-0 z-30 w-[160px] min-w-[160px] bg-[#0B132B] px-space-md py-2.5 text-left">
+                  <th className="freeze-col sticky left-0 z-30 w-[160px] min-w-[160px] max-md:w-[112px] max-md:min-w-[112px] bg-[#0B132B] px-space-md max-md:px-2 py-2.5 text-left">
                     <button
                       type="button"
                       onClick={() => toggleSort("team")}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white hover:text-white/90"
+                      className="inline-flex min-h-11 items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white hover:text-white/90 md:min-h-0"
                       aria-label={
                         sort.key === "team" && sort.dir === "asc"
                           ? "Sort teams Z to A"
@@ -317,11 +346,11 @@ export function FixtureTrackerView() {
                       )}
                     </button>
                   </th>
-                  <th className="freeze-col sticky left-[160px] z-30 w-[88px] min-w-[88px] bg-[#0B132B] px-2 py-2.5 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.25)]">
+                  <th className="freeze-col sticky left-[160px] max-md:left-[112px] z-30 w-[88px] min-w-[88px] bg-[#0B132B] px-2 py-2.5 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.25)]">
                     <button
                       type="button"
                       onClick={() => toggleSort("avg")}
-                      className="inline-flex w-full items-center justify-center gap-1 font-data-mono text-[10px] font-bold tabular-nums text-white/80 hover:text-white"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-1 font-data-mono text-[10px] font-bold tabular-nums text-white/80 hover:text-white md:min-h-0"
                       aria-label={
                         sort.key === "avg" && sort.dir === "desc"
                           ? "Sort average low to high"
@@ -362,19 +391,22 @@ export function FixtureTrackerView() {
                       key={team.teamId}
                       className="group border-b border-border-interior last:border-b-0"
                     >
-                      <td className="freeze-col sticky left-0 z-20 w-[160px] min-w-[160px] bg-white px-space-md py-2 group-hover:bg-slate-50">
+                      <td className="freeze-col sticky left-0 z-20 w-[160px] min-w-[160px] max-md:w-[112px] max-md:min-w-[112px] bg-white px-space-md max-md:px-2 py-2 group-hover:bg-slate-50">
                         <div className="flex min-w-0 items-center gap-2">
                           <span
                             className="h-4 w-1.5 shrink-0 rounded-sm"
                             style={{ backgroundColor: accent }}
                             aria-hidden
                           />
-                          <span className="truncate text-[13px] font-semibold text-on-surface">
+                          <span
+                            className="truncate text-[13px] font-semibold text-on-surface"
+                            title={displayName}
+                          >
                             {displayName}
                           </span>
                         </div>
                       </td>
-                      <td className="freeze-col sticky left-[160px] z-20 w-[88px] min-w-[88px] bg-white px-2 py-2 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50">
+                      <td className="freeze-col sticky left-[160px] max-md:left-[112px] z-20 w-[88px] min-w-[88px] bg-white px-2 py-2 text-center shadow-[4px_0_10px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50">
                         <span
                           className={cn(
                             "inline-block font-data-mono text-[12px] font-semibold tabular-nums",
@@ -406,6 +438,13 @@ export function FixtureTrackerView() {
                 })}
               </tbody>
             </table>
+          </div>
+          {canScrollRight && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 z-40 hidden w-8 bg-gradient-to-l from-white to-transparent max-md:block"
+            />
+          )}
           </div>
         </div>
       </div>

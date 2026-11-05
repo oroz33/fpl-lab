@@ -159,7 +159,7 @@ export function Dashboard() {
 
   const activeFilterChips =
     columnFilters.length > 0 ? (
-      <div className="ml-space-md hidden items-center gap-1.5 lg:flex">
+      <div className="ml-space-md hidden max-md:flex max-md:flex-wrap max-md:items-center max-md:gap-1.5 max-md:ml-0 items-center gap-1.5 lg:flex">
         <span className="text-[10px] font-medium tracking-wider text-on-surface-variant uppercase">
           Active Filters:
         </span>
@@ -171,7 +171,7 @@ export function Dashboard() {
             <span>{f.label}</span>
             <button
               type="button"
-              className="flex items-center transition-colors hover:text-error"
+              className="flex items-center transition-colors hover:text-error max-md:min-h-11 max-md:min-w-11 max-md:justify-center"
               onClick={() => {
                 setColumnFilters([]);
                 setFilterEpoch((n) => n + 1);
@@ -185,10 +185,14 @@ export function Dashboard() {
       </div>
     ) : null;
 
+  const baselineHardcoded =
+    "GW1–GW3 are an inseparable baseline block from the first cumulative Opta upload.";
+  const baselineNote = stats?.meta.baselineNote?.trim() || null;
+
   return (
     <div className="mx-auto w-full max-w-[1720px] space-y-space-md p-3 md:px-space-xl md:py-space-lg">
-      <div className="space-y-space-md rounded-xl bg-surface-container-lowest p-3 shadow-[0_2px_12px_rgba(11,28,48,0.04)] md:p-space-lg">
-        <div className="flex flex-col gap-space-md md:flex-row md:flex-wrap md:items-center md:justify-between xl:flex-nowrap">
+      <div className="space-y-space-md rounded-xl bg-surface-container-lowest p-3 shadow-[0_2px_12px_rgba(11,28,48,0.04)] max-md:space-y-space-sm max-md:p-2.5 md:p-space-lg">
+        <div className="flex flex-col gap-space-md max-md:gap-space-sm md:flex-row md:flex-wrap md:items-center md:justify-between xl:flex-nowrap">
           <div className="no-scrollbar flex max-w-full flex-col gap-space-sm overflow-x-auto md:flex-row md:flex-wrap md:items-center md:gap-space-md md:overflow-visible">
             <div className="no-scrollbar flex max-w-full items-center gap-space-md overflow-x-auto md:overflow-visible">
               <GameweekRange
@@ -250,18 +254,24 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center justify-between pt-1 text-[10px] font-medium text-on-surface-variant">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Phone: single baseline line. Desktop: keep both lines when both exist. */}
+          <div className="flex flex-wrap items-center gap-2 max-md:hidden">
             <span className="inline-flex items-center gap-1 font-medium text-on-tertiary-container">
               <Lock className="h-[13px] w-[13px]" />
-              GW1–GW3 are an inseparable baseline block from the first cumulative Opta
-              upload.
+              {baselineHardcoded}
             </span>
-            {stats?.meta.baselineNote && (
+            {baselineNote && (
               <>
                 <span className="text-on-surface-variant/40">•</span>
-                <span>{stats.meta.baselineNote}</span>
+                <span>{baselineNote}</span>
               </>
             )}
+          </div>
+          <div className="hidden max-md:flex max-md:min-w-0 max-md:flex-1 max-md:items-center max-md:gap-1">
+            <Lock className="h-[13px] w-[13px] shrink-0 text-on-tertiary-container" />
+            <span className="truncate font-medium text-on-tertiary-container">
+              {baselineNote ?? baselineHardcoded}
+            </span>
           </div>
           <div className="hidden items-center gap-space-lg font-data-mono text-[11px] sm:flex">
             <span>

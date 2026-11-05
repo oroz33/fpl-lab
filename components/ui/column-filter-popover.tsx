@@ -113,7 +113,7 @@ export function ColumnFilterPopover({
         <button
           type="button"
           className={cn(
-            "rounded p-0.5 transition-colors hover:bg-white/15",
+            "rounded p-0.5 transition-colors hover:bg-white/15 max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center max-md:p-2",
             active ? "text-tertiary-fixed" : "text-on-primary/60 hover:text-on-primary"
           )}
           onClick={(e) => e.stopPropagation()}

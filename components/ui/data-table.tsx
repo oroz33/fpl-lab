@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -52,6 +58,11 @@ export type ColumnDef<T> = {
   filterable?: boolean;
   /** When true, numeric filter keeps rows with value ≤ threshold (e.g. Avg FDR). */
   lowerIsBetter?: boolean;
+  /**
+   * Phone-only column priority. Ignored at md+.
+   * Key metrics show in the default mobile "Key" mode; secondary hide until "All".
+   */
+  mobilePriority?: "key" | "secondary";
 };
 
 export type ActiveColumnFilter = {
@@ -94,14 +105,17 @@ function isAvgFdrCol<T>(col: ColumnDef<T>): boolean {
 }
 
 const DEFAULT_IDENTITY_WIDTH = 195;
-const MOBILE_NAME_WIDTH = 130;
+const MOBILE_NAME_WIDTH = 180;
 const FIXTURES_WIDTH_3 = 168;
 const FIXTURES_WIDTH_5 = 320;
 const MD_UP_QUERY = "(min-width: 768px)";
+const MOBILE_COLS_STORAGE_KEY = "fpl-table-mobile-cols";
 
 function useIsMdUp(): boolean {
+  // Prefer live matchMedia on client; SSR defaults false so phones don't flash
+  // desktop sticky widths. Desktop resolves to true on mount (no lasting change).
   const [isMdUp, setIsMdUp] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(MD_UP_QUERY).matches : true
+    typeof window !== "undefined" ? window.matchMedia(MD_UP_QUERY).matches : false
   );
 
   useEffect(() => {
@@ -113,6 +127,21 @@ function useIsMdUp(): boolean {
   }, []);
 
   return isMdUp;
+}
+
+function isMobileChromeCol<T>(col: ColumnDef<T>): boolean {
+  return (
+    col.key === "name" ||
+    col.key === "teamShort" ||
+    col.key === "avgFdr" ||
+    isFixturesCol(col)
+  );
+}
+
+function filterMobileKeyColumns<T>(columns: ColumnDef<T>[]): ColumnDef<T>[] {
+  return columns.filter(
+    (col) => isMobileChromeCol(col) || col.mobilePriority === "key"
+  );
 }
 
 type StickyLayout = {
@@ -203,12 +232,48 @@ export function DataTable<T extends { id: string }>({
   const [pageSize, setPageSize] = useState<PageSize>(50);
   const [page, setPage] = useState(1);
   const [internalHorizon, setInternalHorizon] = useState<FixtureHorizon>(3);
+  const [showAllMobileColumns, setShowAllMobileColumns] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [phoneLayoutReady, setPhoneLayoutReady] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const isMdUp = useIsMdUp();
   const controlled = horizonProp !== undefined && onHorizonChange !== undefined;
   const horizon = controlled ? horizonProp : internalHorizon;
   const setHorizon = controlled ? onHorizonChange : setInternalHorizon;
+  // Apply phone-only layout only after matchMedia is known and viewport is narrow.
+  // Avoids desktop ever entering mobile column/sticky paths (incl. SSR/hydration).
+  const usePhoneTableLayout = phoneLayoutReady && !isMdUp;
 
   syncFixtureHorizon(horizon);
+
+  useEffect(() => {
+    setPhoneLayoutReady(true);
+    if (typeof window === "undefined") return;
+    try {
+      setShowAllMobileColumns(
+        window.sessionStorage.getItem(MOBILE_COLS_STORAGE_KEY) === "all"
+      );
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, []);
+
+  const hasMobilePriority = useMemo(
+    () => columns.some((col) => col.mobilePriority === "key"),
+    [columns]
+  );
+
+  const visibleColumns = useMemo(() => {
+    if (!usePhoneTableLayout || showAllMobileColumns || !hasMobilePriority) {
+      return columns;
+    }
+    return filterMobileKeyColumns(columns);
+  }, [
+    columns,
+    usePhoneTableLayout,
+    showAllMobileColumns,
+    hasMobilePriority,
+  ]);
 
   const filteredRows = useMemo(
     () => rows.filter((row) => rowPassesFilters(row, columns, filters)),
@@ -318,15 +383,13 @@ export function DataTable<T extends { id: string }>({
   }
 
   const stickyLayout = useMemo(
-    () => buildStickyLayout(columns, horizon, !isMdUp),
-    [columns, horizon, isMdUp]
+    () => buildStickyLayout(visibleColumns, horizon, usePhoneTableLayout),
+    [visibleColumns, horizon, usePhoneTableLayout]
   );
 
   /** Hide non-sticky columns that slide under the sticky edge (avoids orphan filter icons). */
   useEffect(() => {
-    const scroller = document.querySelector(
-      "[data-table-scroll]"
-    ) as HTMLElement | null;
+    const scroller = scrollRef.current;
     if (!scroller) return;
 
     const lastStickyKey = [...stickyLayout.entries()].find(([, v]) => v.isLast)?.[0];
@@ -350,27 +413,55 @@ export function DataTable<T extends { id: string }>({
       });
     };
 
+    const syncScrollFade = () => {
+      const remaining =
+        scroller.scrollWidth - scroller.clientWidth - scroller.scrollLeft;
+      setCanScrollRight(remaining > 2);
+    };
+
     syncCoveredColumns();
+    syncScrollFade();
     scroller.addEventListener("scroll", syncCoveredColumns, { passive: true });
+    scroller.addEventListener("scroll", syncScrollFade, { passive: true });
     window.addEventListener("resize", syncCoveredColumns);
+    window.addEventListener("resize", syncScrollFade);
     return () => {
       scroller.removeEventListener("scroll", syncCoveredColumns);
+      scroller.removeEventListener("scroll", syncScrollFade);
       window.removeEventListener("resize", syncCoveredColumns);
+      window.removeEventListener("resize", syncScrollFade);
       scroller.querySelectorAll<HTMLElement>("[data-col-key]").forEach((el) => {
         el.style.visibility = "";
       });
     };
-  }, [stickyLayout, horizon, columns, rows]);
+  }, [stickyLayout, horizon, visibleColumns, rows]);
+
+  function toggleMobileColumnMode(nextAll: boolean) {
+    setShowAllMobileColumns(nextAll);
+    try {
+      window.sessionStorage.setItem(
+        MOBILE_COLS_STORAGE_KEY,
+        nextAll ? "all" : "key"
+      );
+    } catch {
+      // sessionStorage unavailable
+    }
+  }
 
   return (
     <FixtureHorizonProvider horizon={horizon} setHorizon={setHorizon}>
     <TooltipProvider delayDuration={180}>
     <div className="relative overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0_4px_20px_rgba(11,28,48,0.06)]">
-      <div className="relative w-full overflow-x-auto" data-table-scroll>
+      <div className="relative">
+      <div
+        ref={scrollRef}
+        className="relative w-full overflow-x-auto"
+        data-table-scroll
+      >
         <table className="w-full border-collapse text-left select-text">
           <thead>
             <tr className="h-table-row-h bg-primary text-[11px] font-semibold tracking-[0.02em] text-on-primary uppercase">
-              {columns.map((col) => {
+              {visibleColumns.map((col) => {
                 const active = sort?.key === col.key;
                 const align = columnAlign(col);
                 const numeric = Boolean(col.numeric);
@@ -399,7 +490,7 @@ export function DataTable<T extends { id: string }>({
                       fixtures && "hidden md:table-cell",
                       sticky &&
                         cn(
-                          "sticky max-w-[130px] bg-primary px-1.5 md:max-w-none md:px-space-md",
+                          "sticky max-w-[180px] bg-primary px-1.5 md:max-w-none md:px-space-md",
                           sticky.isLast ? "z-[32]" : "z-30",
                           fixtures && "overflow-hidden",
                           sticky.isLast &&
@@ -463,7 +554,7 @@ export function DataTable<T extends { id: string }>({
                     ) : (
                       <div
                         className={cn(
-                          "flex items-center gap-0.5",
+                          "flex items-center gap-0.5 max-md:min-h-11 max-md:gap-1",
                           align === "right"
                             ? "justify-end"
                             : align === "center" || numeric
@@ -486,16 +577,16 @@ export function DataTable<T extends { id: string }>({
                         ) : (
                           <span className={labelClassName}>{col.label}</span>
                         )}
-                        <span className="inline-flex items-center gap-0.5">
+                        <span className="inline-flex items-center gap-0.5 max-md:gap-1">
                           {col.sortable !== false &&
                             (active ? (
                               sort?.dir === "asc" ? (
-                                <ArrowUp className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                <ArrowUp className="h-3.5 w-3.5 shrink-0 opacity-90 max-md:h-4 max-md:w-4" />
                               ) : (
-                                <ArrowDown className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                <ArrowDown className="h-3.5 w-3.5 shrink-0 opacity-90 max-md:h-4 max-md:w-4" />
                               )
                             ) : (
-                              <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40" />
+                              <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-40 max-md:h-4 max-md:w-4" />
                             ))}
                           {filterable && (
                             <ColumnFilterPopover
@@ -535,7 +626,7 @@ export function DataTable<T extends { id: string }>({
             {visibleRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length}
+                  colSpan={visibleColumns.length}
                   className="px-4 py-10 text-center font-sans text-on-surface-variant"
                 >
                   {emptyMessage}
@@ -547,7 +638,7 @@ export function DataTable<T extends { id: string }>({
                   key={row.id}
                   className="group transition-colors hover:bg-surface-container-high/40"
                 >
-                  {columns.map((col) => {
+                  {visibleColumns.map((col) => {
                     const raw = cellValue(row, col);
                     let content: ReactNode;
                     if (col.render) content = col.render(row);
@@ -571,7 +662,7 @@ export function DataTable<T extends { id: string }>({
                           isFixturesCol(col) && "hidden md:table-cell",
                           sticky &&
                             cn(
-                              "sticky max-w-[130px] truncate bg-surface-container-lowest px-1.5 group-hover:bg-surface-container-low md:max-w-none md:px-space-md",
+                              "sticky max-w-[180px] truncate bg-surface-container-lowest px-1.5 group-hover:bg-surface-container-low md:max-w-none md:px-space-md",
                               sticky.isLast ? "z-[22]" : "z-20",
                               isFixturesCol(col) && "overflow-hidden",
                               sticky.isLast &&
@@ -603,9 +694,16 @@ export function DataTable<T extends { id: string }>({
           </tbody>
         </table>
       </div>
+      {canScrollRight && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 z-40 hidden w-8 bg-gradient-to-l from-surface-container-lowest to-transparent max-md:block"
+        />
+      )}
+      </div>
 
       <div className="flex flex-col items-center justify-between gap-space-md bg-surface-container-low px-space-lg py-space-md sm:flex-row">
-        <div className="flex items-center gap-space-lg">
+        <div className="flex flex-wrap items-center justify-center gap-space-md sm:gap-space-lg">
           <div className="flex items-center gap-space-xs text-[10px] font-medium text-on-surface-variant">
             <span className="font-semibold tracking-wider uppercase">
               Fixture Difficulty (FDR):
@@ -624,6 +722,34 @@ export function DataTable<T extends { id: string }>({
               ))}
             </div>
           </div>
+          {hasMobilePriority && usePhoneTableLayout && (
+            <div className="inline-flex gap-0.5 rounded-md bg-surface-container-lowest p-0.5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => toggleMobileColumnMode(false)}
+                className={cn(
+                  "min-h-11 rounded px-3 text-[11px] font-semibold transition-colors",
+                  !showAllMobileColumns
+                    ? "bg-primary text-on-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
+                )}
+              >
+                Key
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleMobileColumnMode(true)}
+                className={cn(
+                  "min-h-11 rounded px-3 text-[11px] font-semibold transition-colors",
+                  showAllMobileColumns
+                    ? "bg-primary text-on-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
+                )}
+              >
+                All
+              </button>
+            </div>
+          )}
           <span className="hidden text-on-surface-variant/40 md:inline">•</span>
           <div className="hidden font-data-mono text-[11px] text-on-surface-variant md:flex">
             Opta Matrix Engine:{" "}

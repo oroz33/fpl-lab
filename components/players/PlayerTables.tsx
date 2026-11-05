@@ -67,7 +67,7 @@ function createBaseCols({
               aria-label={favorited ? "Remove favorite" : "Add favorite"}
               aria-pressed={favorited}
               className={cn(
-                "shrink-0 rounded p-0.5 transition-colors",
+                "shrink-0 rounded p-0.5 transition-colors max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center",
                 favorited
                   ? "text-amber-500 hover:text-amber-400"
                   : "text-on-surface-variant/50 hover:text-on-surface-variant"
@@ -83,7 +83,10 @@ function createBaseCols({
               />
             </button>
             <PositionBadge position={r.position} />
-            <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-on-surface">
+            <span
+              className="min-w-0 flex-1 truncate text-[14px] font-semibold text-on-surface"
+              title={r.name}
+            >
               {r.name}
             </span>
             <Link
@@ -111,29 +114,92 @@ function createBaseCols({
     },
     fixturesCol,
     avgFdrCol,
-    { key: "apps", label: "Apps", numeric: true, digits: 0, heatmap: false },
-    { key: "mins", label: "Mins", numeric: true, digits: 0, heatmap: false },
+    {
+      key: "apps",
+      label: "Apps",
+      numeric: true,
+      digits: 0,
+      heatmap: false,
+      mobilePriority: "key",
+    },
+    {
+      key: "mins",
+      label: "Mins",
+      numeric: true,
+      digits: 0,
+      heatmap: false,
+      mobilePriority: "secondary",
+    },
   ];
 }
 
 function createAttackCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
   return [
     ...createBaseCols(fav),
-    { key: "shots", label: "Shots", numeric: true, digits: 0 },
-    { key: "shotsOnTarget", label: "SoT", numeric: true, digits: 0 },
-    { key: "shotsInsideBox", label: "SIB", numeric: true, digits: 0 },
-    { key: "bigChances", label: "BC", numeric: true, digits: 0 },
-    { key: "xG", label: "xG", numeric: true, digits: 2 },
-    { key: "goals", label: "G", numeric: true, digits: 0 },
-    { key: "xGI", label: "xGI", numeric: true, digits: 2 },
-    { key: "npxGI", label: "npxGI", numeric: true, digits: 2 },
-    { key: "gi", label: "GI", numeric: true, digits: 0 },
+    {
+      key: "shots",
+      label: "Shots",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "shotsOnTarget",
+      label: "SoT",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "shotsInsideBox",
+      label: "SIB",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "bigChances",
+      label: "BC",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    { key: "xG", label: "xG", numeric: true, digits: 2, mobilePriority: "key" },
+    {
+      key: "goals",
+      label: "G",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
+    {
+      key: "xGI",
+      label: "xGI",
+      numeric: true,
+      digits: 2,
+      mobilePriority: "key",
+    },
+    {
+      key: "npxGI",
+      label: "npxGI",
+      numeric: true,
+      digits: 2,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "gi",
+      label: "GI",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
     {
       key: "xGiVariance",
       label: "Δ xGI",
       numeric: true,
       digits: 2,
       heatmap: false,
+      mobilePriority: "key",
       getValue: (r) => r.xGiVariance ?? r.gi - r.xGI,
       render: (r) => (
         <XGIVarianceBadge
@@ -145,45 +211,125 @@ function createAttackCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
         />
       ),
     },
-    { key: "keyPasses", label: "KP", numeric: true, digits: 0 },
-    { key: "bigChancesCreated", label: "BCC", numeric: true, digits: 0 },
-    { key: "xA", label: "xA", numeric: true, digits: 2 },
-    { key: "assists", label: "A", numeric: true, digits: 0 },
+    {
+      key: "keyPasses",
+      label: "KP",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "bigChancesCreated",
+      label: "BCC",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    { key: "xA", label: "xA", numeric: true, digits: 2, mobilePriority: "key" },
+    {
+      key: "assists",
+      label: "A",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
   ];
 }
 
 function createSetPieceCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
   return [
     ...createBaseCols(fav),
-    { key: "corners", label: "Corners", numeric: true, digits: 0 },
-    { key: "freeKicksTaken", label: "FK Taken", numeric: true, digits: 0 },
-    { key: "freeKickGoals", label: "FK Goals", numeric: true, digits: 0 },
-    { key: "penaltyGoals", label: "Pens", numeric: true, digits: 0 },
+    {
+      key: "corners",
+      label: "Corners",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
+    {
+      key: "freeKicksTaken",
+      label: "FK Taken",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
+    {
+      key: "freeKickGoals",
+      label: "FK Goals",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "penaltyGoals",
+      label: "Pens",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
   ];
 }
 
 function createDefendingCols(fav: FavoriteProps): ColumnDef<PlayerRow>[] {
   return [
     ...createBaseCols(fav),
-    { key: "clearances", label: "Clr", numeric: true, digits: 0 },
-    { key: "blocks", label: "Blk", numeric: true, digits: 0 },
-    { key: "interceptions", label: "Int", numeric: true, digits: 0 },
-    { key: "tackles", label: "Tck", numeric: true, digits: 0 },
-    { key: "recoveries", label: "Rec", numeric: true, digits: 0 },
+    {
+      key: "clearances",
+      label: "Clr",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "blocks",
+      label: "Blk",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "interceptions",
+      label: "Int",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "secondary",
+    },
+    {
+      key: "tackles",
+      label: "Tck",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
+    {
+      key: "recoveries",
+      label: "Rec",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
     {
       key: "dcPerGame",
       label: "DC/G",
       numeric: true,
       digits: 2,
+      mobilePriority: "key",
       getValue: (r) => r.dcPerGame,
       render: (r) => (r.dcPerGame === null ? "—" : r.dcPerGame.toFixed(2)),
     },
-    { key: "cleanSheets", label: "CS", numeric: true, digits: 0 },
+    {
+      key: "cleanSheets",
+      label: "CS",
+      numeric: true,
+      digits: 0,
+      mobilePriority: "key",
+    },
     {
       key: "saves",
       label: "Saves",
       numeric: true,
       digits: 0,
+      mobilePriority: "secondary",
       getValue: (r) => r.saves,
       render: (r) => (r.saves === null ? "—" : String(r.saves)),
     },
