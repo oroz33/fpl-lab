@@ -40,7 +40,7 @@ Delta: `GW_n = Cumulative_n − Cumulative_(n−1)`. First upload through GW3 = 
 - Universal App Shell (header + sidebar) · Player Data · H2H Compare (`/h2h`) · Fixture Tracker (`/fixtures`) · **My Team** (`/my-team`) · Opta Batch Links · Squad Planner / Regression Lab (Coming Soon)
 - Players: Attack / Set Pieces / Defending · Teams: Defensive / Offensive (+ ΔG / ΔGC / ΔCS)
 - **My Team:** localStorage squad (15) · Last Fixtures Stats (league heatmap) · News & Team Intel (Expected XI / fitness / press quotes)
-- Metric header tooltips · Popover column filters (threshold / Top 10% / Top 25%) · percentile heatmaps (**Top 2.5%** emerald / Bottom 5% rose) · FDR Next 3|5 + Avg FDR · team accent bars
+- Metric header tooltips · Popover column filters (threshold / Top 10% / Top 25%) · heatmaps: Players/My Team percentile (**Top 2.5%** emerald / Bottom 5% rose); **Favorites** rank top/bottom **1 / 2 / 3** by sample size (≤5 / 6–10 / 11+); Teams Defensive/Offensive **top/bottom 3** (xGC/GC lower-is-better) · FDR Next 3|5 + Avg FDR · team accent bars
 - Dual-player H2H: SVG percentile radar, winner matrix, archetype panel
 - Bento forensic insight cards · Batch multi-file ingest · Clear all data
 

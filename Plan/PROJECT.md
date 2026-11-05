@@ -2,8 +2,8 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.8.1` (מסונכרן עם `package.json` ועם Git Tags מקומיים)  
-**עודכן לאחרונה:** My Team zero-GW squad fallback · Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Next 3|5 layout · Column filter precision · Favorite Players · Metric header tooltips · Fixture Tracker
+**גרסה נוכחית:** `v1.8.4` (מסונכרן עם יומן השינויים; `package.json` / Git Tags יעודכנו בתיוג הרשמי)  
+**עודכן לאחרונה:** Favorites top/bottom-N heatmap · H2H metrics refresh · Teams top/bottom-3 heatmap · My Team zero-GW squad fallback · Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Fixture Tracker
 
 ---
 
@@ -49,9 +49,9 @@
 - **Fixture Tracker** (`/fixtures`) — מטריצת FDR לפי GW עד סוף העונה, presets Next 5/10/Full Season, Offensive|Defensive
 - **H2H Compare** (`/h2h`) — השוואת שני שחקני שדה (ללא GKP), רדאר אחוזונים (פוליגון) עם תוויות ערכים גולמיים, מטריצת מנצחים
 - פילטרים גלובליים: Gameweek, Position, Team, Search, **Favorites**
-- **Favorite Players** — כוכב ליד שם שחקן + chip "Favorites" (סינון in-memory בלבד, נמחק ב־refresh)
+- **Favorite Players** — כוכב ליד שם שחקן + chip "Favorites" (סינון in-memory בלבד, נמחק ב־refresh); במצב Favorites ה־heatmap עובר ל־top/bottom-N לפי גודל המדגם (ראו מטה)
 - פילטר **מעל כל עמודה**: מספרים ≥ ערך; טקסט = contains; מספר עמודות = AND
-- **Percentile heatmap** בטבלה: Top **2.5%** (ירוק) / Bottom **5%** (אדום, רק כשיש שונות משמעותית)
+- **Heatmap** בטבלה: Players / My Team — percentile Top **2.5%** (ירוק) / Bottom **5%** (אדום, רק כשיש שונות); **Favorites** (Attack / Set Pieces / Defending) — rank top/bottom-N לפי מספר השחקנים במדגם; **Teams** Defensive/Offensive — **top/bottom 3** לפי דירוג (`heatmapTopN`), עם `lowerIsBetter` ל־xGC/GC
 - מיון בלחיצה על כותרות · כפתור Compare משורת שחקן → `/h2h?a={id}`
 - דלתות קבוצה צבעוניות: ΔG, ΔGC, ΔCS
 - **Batch upload** — בחירת הרבה קבצי JSON ביחד (לפי קבוצה)
@@ -135,7 +135,7 @@ FPL/
 ├── lib/
 │   ├── types.ts                    # + Squad / PlayerIntel types
 │   ├── utils.ts
-│   ├── heatmap.ts                  # percentile + heatmap class helpers (shared)
+│   ├── heatmap.ts                  # percentile + top/bottom-N rank heatmap helpers (shared)
 │   ├── squad/                      # rules, use-my-team (localStorage), player-intel
 │   ├── h2h/                        # metrics.ts, radar.ts
 │   ├── constants/
@@ -300,25 +300,36 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 | Gameweek From/To | אגרגציה לפי מנוע הדלתא |
 | POS | All / GKP / DEF / MID / FWD (+ counters) |
 | Team | כל הקבוצות שב־store |
-| Favorites | Chip "Favorites" (Players בלבד) — מציג רק שחקנים שסומנו בכוכב; מצב in-memory ב־`Dashboard` (לא localStorage / store); נשמר בין טאבי Attack / Set Pieces / Defending |
+| Favorites | Chip "Favorites" (Players בלבד) — מציג רק שחקנים שסומנו בכוכב; מצב in-memory ב־`Dashboard` (לא localStorage / store); נשמר בין טאבי Attack / Set Pieces / Defending; heatmap עובר ל־rank top/bottom-N (`favoritesHeatmapTopN` + `heatmapTopNOverride`): **1–5** → 1 הטוב/החלש, **6–10** → 2, **11+** → 3 בכל עמודה |
 | Search | שם שחקן או קבוצה (⌘K) |
 
 ### תצוגות
 
 **Players:** Attack · Set Pieces · Defending (+ Goalkeeping / Creativity / Bonus — UI placeholders)  
-**Teams:** Defensive (xGC, GC, ΔGC, xCS, CS, ΔCS) · Offensive (xG, G, ΔG)  
+**Teams:** Defensive (xGC, GC, ΔGC, xCS, CS, ΔCS) · Offensive (xG, G, ΔG) — heatmap top/bottom **3** על xGC/GC/xCS/CS ו־xG/G (xGC/GC: נמוך יותר = טוב יותר); Δ ללא רקע heatmap  
+
 **Fixture Tracker (`/fixtures`):** מטריצת team × GW מ־`startGw = latestCompleteGw + 1` עד GW38 · presets Next 5 / Next 10 / Full Season · Offensive|Defensive · sticky Team + N-AVG (מיון) · DGW stacked chips / BGW dashed · מיון Team A–Z ו־N-AVG  
 **My Team (`/my-team`):** סגל מקומי עד 15 שחקנים ב־`localStorage` (`fpl_lab_my_team`, מפתחות `teamId:playerId`) · מגבלות 2 GKP / 5 DEF / 5 MID / 3 FWD + מקס 3 לקבוצה · Mini-bar לפי עמדה · **Tab 1 — Last Fixtures Stats** (sticky POS/PLAYER/TEAM/NEXT/FDR, מדדים, heatmap מול כל הליגה, placeholder לשורות חסרות) · **Tab 2 — News & Team Intel** (`MyTeamNewsGrid`: Expected XI / Fitness / Press Quote מ־`data/player-news.json`) · `SquadDialog` לעריכה  
-**H2H Compare (`/h2h`):** בחירת שני שחקני שדה (ללא GKP) · Per 90 / Total · רדאר אחוזונים דינמי לפי זיווג עמדות (SVG, 6 צירים) · Archetype panel · מטריצת מנצחים (Opta בלבד — ללא ownership/price/FPL points)
+**H2H Compare (`/h2h`):** בחירת שני שחקני שדה (ללא GKP) · Per 90 / Total · רדאר אחוזונים דינמי לפי זיווג עמדות (SVG, 6 צירים) · Archetype panel · מטריצת מנצחים ב־4 בלוקים (Opta בלבד — ללא ownership/price/FPL points)
 
 **Percentile Radar — כללים:**
 | שכבה | התנהגות |
 |------|----------|
 | פוליגון / נקודות | סקאלת אחוזונים 0–100 מול peers בעמדות הזיווג (`mins ≥ 180`) |
 | תוויות צירים | ערכים סטטיסטיים גולמיים מפורמטים: `[Label] ([A] vs [B])` — למשל `xGI (0.32 vs 0.83)`, לא אחוזונים |
-| סטים | **Defensive** (אין FWD): DC/G · Mins/App · xGI · BCC+KP · Set Pieces · CS · **Attacking** (יש FWD): G+A · Mins/App · xGI · BCC+KP · Set Pieces · Shots |
-| TOTAL / PER 90 | משפיע על תוויות + אחוזונים של xGI / BCC+KP / Set Pieces / CS / G+A / Shots; **DC/G** ו־**Mins/App** תמיד rates |
-| דיוק תצוגה | מספרים שלמים (`CS`, Set Pieces, Shots, G+A, BCC+KP); 1–2 ספרות אחרי הנקודה (`Mins/App`, `xGI`, `DC/G`) |  
+| סטים | **Defensive** (יש לפחות DEF אחד): Mins · xG · KP+BCC · xGI · DC/G · Set Pieces · **Attacking** (MID/FWD בלבד, בלי DEF): Apps · Mins · xG · KP+BCC · xGI · Set Pieces |
+| TOTAL / PER 90 | משפיע על תוויות + אחוזונים של xG / KP+BCC / xGI / Set Pieces; **Apps**, **Mins** ו־**DC/G** תמיד absolute / rate קבוע |
+| דיוק תצוגה | מספרים שלמים (`Apps`, `Mins`, Set Pieces, KP+BCC); 1–2 ספרות אחרי הנקודה (`xG`, `xGI`, `DC/G`) |
+| Set Pieces (ציר) | `corners + freeKicksTaken + penaltyGoals` |
+
+**H2H Winner Matrix — בלוקים (`MATRIX_CATEGORIES`):**
+| בלוק | מדדים |
+|------|--------|
+| 1. General | Appearances · Minutes · Avg Minutes / Game — תמיד absolute (לא per90) |
+| 2. Attacking | Shots · xG · KP · BCC · KP + BCC · xA · xGI — לפי Total / Per 90 |
+| 3. Defensive | DC/G בלבד (כבר per-game) |
+| 4. Set Pieces | Corners · FK Taken · Pens (`penaltyGoals`) — לפי Total / Per 90 |
+
 **Insights:** Bento cards — xG underperformers · Top KP · FDR green run
 
 ### עיצוב טבלה
@@ -328,7 +339,7 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 | כותרת | `bg-primary`, uppercase, מיון asc/desc; hover על קיצורי מטריקות → tooltip כהה (`METRIC_DESCRIPTIONS`) |
 | Sticky | **Player → Team → Next → Avg FDR** (cumulative `left`, צל על העמודה האחרונה); עמודות שגוללות מתחת ל־sticky מוסתרות כדי למנוע אייקון פילטר יתום; כוכב Favorite · Compare ב־hover → `/h2h?a={id}` |
 | מספריים | יישור ממורכז, JetBrains Mono + `tnum`; Δ xGI עם סימן מפורש (`+`/`−`) וצבע הפוך (emerald under / rose over) |
-| Heatmap | דינמי לפי שורות מסוננות; **Top 2.5%** (`≥ P97.5`) = emerald; **Bottom 5%** (`≤ P5`) = rose רק כש־`p5 > 0` ויש שונות; Apps/Mins/Δ xGI ללא heatmap |
+| Heatmap | דינמי לפי שורות מסוננות. **Players / My Team** (ללא Favorites): **Top 2.5%** (`≥ P97.5`) = emerald; **Bottom 5%** (`≤ P5`) = rose רק כש־`p5 > 0` ויש שונות. **Favorites** (`heatmapTopNOverride` מ־`favoritesHeatmapTopN(rows.length)`): 1–5 → top/bottom **1**; 6–10 → **2**; 11+ → **3** (Attack / Set Pieces / Defending). **Teams** (`heatmapTopN: 3`): 3 הטובים = emerald, 3 הגרועים = rose; xGC/GC עם `lowerIsBetter` (נמוך = ירוק); שוויון בסף הצבע נצבע גם כן; Apps/Mins/Avg FDR/Δ xGI/ΔG/ΔGC/ΔCS ללא heatmap |
 | FDR | Next chips use Overall FDR (`fdrOverall`); header toggle Next 3\|5 (רוחב sticky 168/320) + Avg FDR; ב־Players האופק נשמר ב־`Dashboard` בין טאבים (session); palette `#15803D` / `#16A34A` / `#64748B` / `#DC2626` / `#991B1B` (1–5, easy→hard) |
 | Team accents | פס אנכי `TEAM_ACCENTS` ליד `teamShort` / שם קבוצה (Players + Teams) דרך `TeamAccentLabel` |
 | Metric tooltips | Radix Tooltip על כותרות מקוצרות ב־Player Data (Players + Teams, כל תתי־הטאבים); delay ~180ms; לא משפיע על sort/filter |
@@ -508,10 +519,13 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.8.1**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.8.4**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.8.4 | Favorites top/bottom-N heatmap | במצב Favorites, Attack / Set Pieces / Defending עוברים מ־percentile ל־rank heat דרך `favoritesHeatmapTopN` + `DataTable.heatmapTopNOverride`: 1–5 → top/bottom 1, 6–10 → 2, 11+ → 3; מחוץ ל־Favorites נשאר percentile; Apps/Mins/Avg FDR/Δ xGI ללא heatmap |
+| v1.8.3 | H2H metrics refresh | מטריצת H2H: General / Attacking / Defensive / Set Pieces; רדאר לפי DEF-involved (Mins·xG·KP+BCC·xGI·DC/G·Set Pieces) מול MID/FWD-only (Apps·Mins·xG·KP+BCC·xGI·Set Pieces); הוסרו CS / G+A / Mins/App / Shots מציר הרדאר |
+| v1.8.2 | Teams top/bottom-3 heatmap | `buildTopBottomHeat` + `heatmapTopN` ב־DataTable; Teams Defensive/Offensive צובעים 3 הטובים (emerald) ו־3 הגרועים (rose); xGC/GC עם `lowerIsBetter`; ΔG/ΔGC/ΔCS בלי heatmap; Players/My Team נשארים percentile |
 | v1.8.1 | My Team zero-GW fallback | סגל 15 נשאר גלוי תחת כל פילטר GW; roster מלא + `buildEmptyPlayerRow` כשאין דלתא/דקות; טבלת Last Fixtures מציגה `—` ל־apps/mins=0 (למשל João Pedro ב־GW5) |
 | v1.8.0 | My Team page | Route `/my-team` + sidebar (`Users`); סגל ב־`localStorage` (`fpl_lab_my_team`); מגבלות עמדה/קבוצה; Mini-bar + SquadDialog; Tab 1 Last Fixtures Stats (sticky + heatmap ליגה מלאה + empty slots) |
 | v1.8.0 | News & Team Intel | Tab 2 על `/my-team`: `MyTeamNewsGrid` · Expected XI / Fitness / Press Quote · mock `data/player-news.json` + `resolvePlayerIntel` · badges emerald / caution / rose |
@@ -572,4 +586,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.8.1 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.8.3 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
