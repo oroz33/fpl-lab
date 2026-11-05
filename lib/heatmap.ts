@@ -4,6 +4,22 @@ export type HeatThresholds = {
   allowBottom: boolean;
 };
 
+export type RankHeatThresholds = {
+  mode: "rank";
+  bestCutoff: number;
+  worstCutoff: number;
+  lowerIsBetter: boolean;
+  allowBottom: boolean;
+};
+
+export type AnyHeatThresholds = HeatThresholds | RankHeatThresholds;
+
+function isRankHeat(
+  thresholds: AnyHeatThresholds
+): thresholds is RankHeatThresholds {
+  return "mode" in thresholds && thresholds.mode === "rank";
+}
+
 /** Linear-interpolated percentile on an ascending sorted numeric array. */
 export function percentileAt(sortedAsc: number[], pct: number): number {
   if (!sortedAsc.length) return 0;
@@ -16,21 +32,33 @@ export function percentileAt(sortedAsc: number[], pct: number): number {
   return sortedAsc[lo]! * (1 - t) + sortedAsc[hi]! * t;
 }
 
+const BEST_CLASS =
+  "bg-emerald-100/60 text-emerald-900 font-bold group-hover:bg-emerald-100/80";
+const WORST_CLASS =
+  "bg-rose-100/60 text-rose-900 font-semibold group-hover:bg-rose-100/80";
+
 /**
  * Top 2.5% (≥ P97.5) emerald / Bottom 5% (≤ P5) rose when variance allows.
- * Matches DataTable heatmap rules.
+ * Also supports rank-based top/bottom-N thresholds from buildTopBottomHeat.
  */
 export function heatmapClassForValue(
   value: number,
-  thresholds: HeatThresholds | undefined
+  thresholds: AnyHeatThresholds | undefined
 ): string {
   if (!thresholds) return "";
-  if (value >= thresholds.p975) {
-    return "bg-emerald-100/60 text-emerald-900 font-bold group-hover:bg-emerald-100/80";
+  if (isRankHeat(thresholds)) {
+    const isBest = thresholds.lowerIsBetter
+      ? value <= thresholds.bestCutoff
+      : value >= thresholds.bestCutoff;
+    if (isBest) return BEST_CLASS;
+    const isWorst = thresholds.lowerIsBetter
+      ? value >= thresholds.worstCutoff
+      : value <= thresholds.worstCutoff;
+    if (thresholds.allowBottom && isWorst) return WORST_CLASS;
+    return "";
   }
-  if (thresholds.allowBottom && value <= thresholds.p5) {
-    return "bg-rose-100/60 text-rose-900 font-semibold group-hover:bg-rose-100/80";
-  }
+  if (value >= thresholds.p975) return BEST_CLASS;
+  if (thresholds.allowBottom && value <= thresholds.p5) return WORST_CLASS;
   return "";
 }
 
@@ -45,4 +73,33 @@ export function buildHeatThresholds(
   const allZero = sorted.every((v) => v === 0);
   const allowBottom = !allZero && p975 > p5 && p5 > 0;
   return { p5, p975, allowBottom };
+}
+
+/**
+ * Rank heat: N best → emerald, N worst → rose.
+ * Tie rule: any value equal to the Nth cutoff is colored (may exceed N cells).
+ */
+export function buildTopBottomHeat(
+  values: number[],
+  opts: { n: number; lowerIsBetter?: boolean }
+): RankHeatThresholds | undefined {
+  if (!values.length) return undefined;
+  const n = Math.max(1, Math.min(Math.floor(opts.n), values.length));
+  const lowerIsBetter = Boolean(opts.lowerIsBetter);
+  const goodFirst = [...values].sort((a, b) =>
+    lowerIsBetter ? a - b : b - a
+  );
+  const bestCutoff = goodFirst[n - 1]!;
+  const worstCutoff = goodFirst[goodFirst.length - n]!;
+  const hasSpread = lowerIsBetter
+    ? worstCutoff > bestCutoff
+    : worstCutoff < bestCutoff;
+  if (!hasSpread) return undefined;
+  return {
+    mode: "rank",
+    bestCutoff,
+    worstCutoff,
+    lowerIsBetter,
+    allowBottom: true,
+  };
 }

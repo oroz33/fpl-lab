@@ -26,8 +26,9 @@ import {
 import { metricDescription } from "@/lib/constants/metrics";
 import {
   buildHeatThresholds,
+  buildTopBottomHeat,
   heatmapClassForValue,
-  type HeatThresholds,
+  type AnyHeatThresholds,
 } from "@/lib/heatmap";
 import { cn, formatNum, round } from "@/lib/utils";
 
@@ -45,6 +46,8 @@ export type ColumnDef<T> = {
   numeric?: boolean;
   /** When false, skip percentile heatmap (e.g. Apps/Mins). Default true for numeric cols. */
   heatmap?: boolean;
+  /** When set, color N best / N worst by rank instead of percentiles. */
+  heatmapTopN?: number;
   digits?: number;
   filterable?: boolean;
   /** When true, numeric filter keeps rows with value ≤ threshold (e.g. Avg FDR). */
@@ -227,7 +230,7 @@ export function DataTable<T extends { id: string }>({
   }, [filteredRows, sort, columns, horizon]);
 
   const columnHeatThresholds = useMemo(() => {
-    const map = new Map<string, HeatThresholds>();
+    const map = new Map<string, AnyHeatThresholds>();
     for (const col of columns) {
       if (!col.numeric || col.heatmap === false) continue;
       const values: number[] = [];
@@ -235,7 +238,13 @@ export function DataTable<T extends { id: string }>({
         const v = cellValue(row, col);
         if (typeof v === "number" && Number.isFinite(v)) values.push(v);
       }
-      const thresholds = buildHeatThresholds(values);
+      const thresholds =
+        typeof col.heatmapTopN === "number" && col.heatmapTopN > 0
+          ? buildTopBottomHeat(values, {
+              n: col.heatmapTopN,
+              lowerIsBetter: col.lowerIsBetter,
+            })
+          : buildHeatThresholds(values);
       if (thresholds) map.set(col.key, thresholds);
     }
     return map;
