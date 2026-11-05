@@ -21,43 +21,48 @@ export interface TournamentSchedule {
   matchDate: { date: string; match?: ScheduleMatch[] }[];
 }
 
-export type TeamMetrics = { xGPer90: number; xGCPer90: number };
+export type VenueMetrics = { xGPer90: number; xGCPer90: number };
 
-const VENUE_DELTA = 0.35;
+export type TeamMetrics = VenueMetrics & {
+  home: VenueMetrics;
+  away: VenueMetrics;
+};
 
-/** Off FDR anchors: lower opp xGC → harder to attack (higher FDR). */
-const OFF_ANCHORS: { x: number; y: number }[] = [
-  { x: 0.9, y: 5 },
-  { x: 1.2, y: 4 },
-  { x: 1.5, y: 3 },
-  { x: 1.8, y: 1 },
-];
+/** Small tie-break after venue-split metrics (home easier). */
+const VENUE_NUDGE = 0.15;
 
-/** Def FDR anchors: higher opp xG → harder to defend (higher FDR). */
-const DEF_ANCHORS: { x: number; y: number }[] = [
-  { x: 0.9, y: 1 },
-  { x: 1.2, y: 2 },
-  { x: 1.5, y: 3 },
-  { x: 1.8, y: 5 },
-];
+/** Prefer venue bucket only when it has at least this many matches. */
+const MIN_VENUE_GAMES = 3;
+
+const XG_QUALIFIER_ID = 321;
+
+type EgMatchEvent = {
+  contestantId?: string;
+  qualifier?: Array<{ qualifierId?: number | string; value?: string | number }>;
+};
+
+type EgMatch = {
+  id?: string;
+  location?: string;
+  oppositionContestantId?: string;
+  date?: string;
+  event?: EgMatchEvent[];
+};
+
+export type FixtureRawRating = {
+  fdrOffRaw: number;
+  fdrDefRaw: number;
+  fdrOverallRaw: number;
+};
+
+export type FixtureRating = FixtureRawRating & {
+  fdrOff: FdrScore;
+  fdrDef: FdrScore;
+  fdrOverall: FdrScore;
+};
 
 export function clampRound(value: number): FdrScore {
   return Math.min(5, Math.max(1, Math.round(value))) as FdrScore;
-}
-
-function interpolateAnchors(x: number, anchors: { x: number; y: number }[]): number {
-  if (x <= anchors[0]!.x) return anchors[0]!.y;
-  const last = anchors[anchors.length - 1]!;
-  if (x >= last.x) return last.y;
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const a = anchors[i]!;
-    const b = anchors[i + 1]!;
-    if (x >= a.x && x <= b.x) {
-      const t = (x - a.x) / (b.x - a.x);
-      return a.y + t * (b.y - a.y);
-    }
-  }
-  return 3;
 }
 
 function matchKickoffMs(match: ScheduleMatch): number {
@@ -115,6 +120,46 @@ export async function loadTournamentSchedule(
   return JSON.parse(raw) as TournamentSchedule;
 }
 
+function sumMatchTeamXg(match: EgMatch, teamId: string): number {
+  let xg = 0;
+  for (const event of match.event ?? []) {
+    if (event.contestantId !== teamId) continue;
+    const q = (event.qualifier ?? []).find(
+      (item) => Number(item.qualifierId) === XG_QUALIFIER_ID
+    );
+    if (!q) continue;
+    const value = Number(q.value);
+    if (Number.isFinite(value)) xg += value;
+  }
+  return xg;
+}
+
+function emptyVenueBucket() {
+  return { xG: 0, xGC: 0, games: 0 };
+}
+
+function per90(total: number, games: number, fallback: number): number {
+  if (games > 0) return total / games;
+  return fallback;
+}
+
+function venueFromBucket(
+  bucket: { xG: number; xGC: number; games: number },
+  season: VenueMetrics
+): VenueMetrics {
+  if (bucket.games < MIN_VENUE_GAMES) {
+    return { xGPer90: season.xGPer90, xGCPer90: season.xGCPer90 };
+  }
+  return {
+    xGPer90: per90(bucket.xG, bucket.games, season.xGPer90),
+    xGCPer90: per90(bucket.xGC, bucket.games, season.xGCPer90),
+  };
+}
+
+/**
+ * Build season + home/away xG/xGC per 90.
+ * Venue xGC comes from the opponent's match xG in the paired EG feed (same match id).
+ */
 export function buildTeamMetrics(
   snapshots: CumulativeSnapshot[]
 ): Map<string, TeamMetrics> {
@@ -126,53 +171,209 @@ export function buildTeamMetrics(
     }
   }
 
+  /** matchId → teamId → xG in that match */
+  const matchTeamXg = new Map<string, Map<string, number>>();
+  const teamMatchMeta = new Map<
+    string,
+    Array<{ matchId: string; location: "home" | "away"; oppositionId: string }>
+  >();
+
+  for (const [teamId, snapshot] of latest) {
+    const raw = snapshot.expectedGoalsRaw as { match?: EgMatch[] } | undefined;
+    for (const match of raw?.match ?? []) {
+      if (!match.id) continue;
+      const location =
+        match.location === "home" || match.location === "away"
+          ? match.location
+          : null;
+      if (!location) continue;
+
+      const xg = sumMatchTeamXg(match, teamId);
+      let byTeam = matchTeamXg.get(match.id);
+      if (!byTeam) {
+        byTeam = new Map();
+        matchTeamXg.set(match.id, byTeam);
+      }
+      byTeam.set(teamId, xg);
+
+      const list = teamMatchMeta.get(teamId) ?? [];
+      list.push({
+        matchId: match.id,
+        location,
+        oppositionId: match.oppositionContestantId ?? "",
+      });
+      teamMatchMeta.set(teamId, list);
+    }
+  }
+
   const metrics = new Map<string, TeamMetrics>();
   for (const [teamId, snapshot] of latest) {
     const gamesPlayed = Number(snapshot.teamStats.gamesPlayed ?? 0);
     if (!Number.isFinite(gamesPlayed) || gamesPlayed <= 0) continue;
     const xG = Number(snapshot.teamStats.xG ?? 0);
     const xGC = Number(snapshot.teamStats.xGC ?? 0);
-    metrics.set(teamId, {
+    const season: VenueMetrics = {
       xGPer90: xG / gamesPlayed,
       xGCPer90: xGC / gamesPlayed,
+    };
+
+    const home = emptyVenueBucket();
+    const away = emptyVenueBucket();
+
+    for (const meta of teamMatchMeta.get(teamId) ?? []) {
+      const byTeam = matchTeamXg.get(meta.matchId);
+      if (!byTeam) continue;
+      const teamXg = byTeam.get(teamId);
+      if (teamXg == null) continue;
+
+      let oppXg: number | undefined;
+      if (meta.oppositionId && byTeam.has(meta.oppositionId)) {
+        oppXg = byTeam.get(meta.oppositionId);
+      } else {
+        for (const [otherId, otherXg] of byTeam) {
+          if (otherId !== teamId) {
+            oppXg = otherXg;
+            break;
+          }
+        }
+      }
+      if (oppXg == null) continue;
+
+      const bucket = meta.location === "home" ? home : away;
+      bucket.xG += teamXg;
+      bucket.xGC += oppXg;
+      bucket.games += 1;
+    }
+
+    metrics.set(teamId, {
+      ...season,
+      home: venueFromBucket(home, season),
+      away: venueFromBucket(away, season),
     });
   }
+
   return metrics;
 }
 
-/** Continuous Off FDR from opponent xGC per 90 (higher xGC = easier to attack). */
-export function rateOffContinuous(xGCPer90: number): number {
-  return interpolateAnchors(xGCPer90, OFF_ANCHORS);
+function venueSlice(metrics: TeamMetrics, atHome: boolean): VenueMetrics {
+  return atHome ? metrics.home : metrics.away;
 }
 
-/** Continuous Def FDR from opponent xG per 90 (higher xG = harder to defend). */
-export function rateDefContinuous(xGPer90: number): number {
-  return interpolateAnchors(xGPer90, DEF_ANCHORS);
-}
-
-function venueDelta(isHome: boolean): number {
-  return isHome ? -VENUE_DELTA : VENUE_DELTA;
-}
-
-/** Rate a fixture vs opponent metrics (shared by Next fixtures + tracker matrix). */
-export function rateFixture(
+/**
+ * Continuous matchup difficulty (higher = harder).
+ * Off ease = our attack − their defence; inverted for FDR.
+ * Def hard = their attack − our defence.
+ */
+export function rateFixtureRaw(
+  teamId: string,
   opponentId: string,
   isHome: boolean,
   metrics: Map<string, TeamMetrics>
-): { fdrOff: FdrScore; fdrDef: FdrScore; fdrOverall: FdrScore } {
+): FixtureRawRating {
+  const us = metrics.get(teamId);
   const opp = metrics.get(opponentId);
-  if (!opp) {
-    return { fdrOff: 3, fdrDef: 3, fdrOverall: 3 };
+  if (!us || !opp) {
+    return { fdrOffRaw: 3, fdrDefRaw: 3, fdrOverallRaw: 3 };
   }
 
-  const delta = venueDelta(isHome);
-  const fdrOffRaw = rateOffContinuous(opp.xGCPer90) + delta;
-  const fdrDefRaw = rateDefContinuous(opp.xGPer90) + delta;
+  const ourSlice = venueSlice(us, isHome);
+  const oppSlice = venueSlice(opp, !isHome);
+  const nudge = isHome ? -VENUE_NUDGE : VENUE_NUDGE;
 
+  const offEase = ourSlice.xGPer90 - oppSlice.xGCPer90;
+  const defHard = oppSlice.xGPer90 - ourSlice.xGCPer90;
+  const fdrOffRaw = -offEase + nudge;
+  const fdrDefRaw = defHard + nudge;
+  const fdrOverallRaw = (fdrOffRaw + fdrDefRaw) / 2;
+
+  return { fdrOffRaw, fdrDefRaw, fdrOverallRaw };
+}
+
+/** Percentile rank → continuous FDR in [1, 5] (higher difficulty → higher score). */
+export function continuousRankToFdr(value: number, sortedAsc: number[]): number {
+  if (!sortedAsc.length) return 3;
+  let below = 0;
+  let equal = 0;
+  for (const v of sortedAsc) {
+    if (v < value) below += 1;
+    else if (v === value) equal += 1;
+  }
+  const pct = (below + 0.5 * equal) / sortedAsc.length;
+  return 1 + pct * 4;
+}
+
+/** Map continuous values to FDR 1–5 via quintiles (higher value → harder → 5). */
+export function bandByQuintiles(values: number[]): (value: number) => FdrScore {
+  if (values.length === 0) {
+    return () => 3;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const thresholdAt = (p: number) => {
+    const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
+    return sorted[idx]!;
+  };
+  const t1 = thresholdAt(0.2);
+  const t2 = thresholdAt(0.4);
+  const t3 = thresholdAt(0.6);
+  const t4 = thresholdAt(0.8);
+
+  return (value: number): FdrScore => {
+    if (value <= t1) return 1;
+    if (value <= t2) return 2;
+    if (value <= t3) return 3;
+    if (value <= t4) return 4;
+    return 5;
+  };
+}
+
+export type BandFns = {
+  bandOff: (v: number) => FdrScore;
+  bandDef: (v: number) => FdrScore;
+  bandOverall: (v: number) => FdrScore;
+  sortedOff: number[];
+  sortedDef: number[];
+  sortedOverall: number[];
+};
+
+export function buildBandFns(raws: FixtureRawRating[]): BandFns {
+  const sortedOff = [...raws.map((r) => r.fdrOffRaw)].sort((a, b) => a - b);
+  const sortedDef = [...raws.map((r) => r.fdrDefRaw)].sort((a, b) => a - b);
+  const sortedOverall = [...raws.map((r) => r.fdrOverallRaw)].sort((a, b) => a - b);
   return {
-    fdrOff: clampRound(fdrOffRaw),
-    fdrDef: clampRound(fdrDefRaw),
-    fdrOverall: clampRound((fdrOffRaw + fdrDefRaw) / 2),
+    bandOff: bandByQuintiles(sortedOff),
+    bandDef: bandByQuintiles(sortedDef),
+    bandOverall: bandByQuintiles(sortedOverall),
+    sortedOff,
+    sortedDef,
+    sortedOverall,
+  };
+}
+
+/** Band integers + rewrite raw fields onto continuous 1–5 for averages. */
+export function applyBands(raw: FixtureRawRating, bands: BandFns): FixtureRating {
+  return {
+    fdrOffRaw: continuousRankToFdr(raw.fdrOffRaw, bands.sortedOff),
+    fdrDefRaw: continuousRankToFdr(raw.fdrDefRaw, bands.sortedDef),
+    fdrOverallRaw: continuousRankToFdr(raw.fdrOverallRaw, bands.sortedOverall),
+    fdrOff: bands.bandOff(raw.fdrOffRaw),
+    fdrDef: bands.bandDef(raw.fdrDefRaw),
+    fdrOverall: bands.bandOverall(raw.fdrOverallRaw),
+  };
+}
+
+/** @deprecated Use rateFixtureRaw + bandByQuintiles; kept for any legacy callers. */
+export function rateFixture(
+  teamId: string,
+  opponentId: string,
+  isHome: boolean,
+  metrics: Map<string, TeamMetrics>
+): FixtureRating {
+  const raw = rateFixtureRaw(teamId, opponentId, isHome, metrics);
+  return {
+    ...raw,
+    fdrOff: clampRound(raw.fdrOffRaw + 3),
+    fdrDef: clampRound(raw.fdrDefRaw + 3),
+    fdrOverall: clampRound(raw.fdrOverallRaw + 3),
   };
 }
 
@@ -197,22 +398,6 @@ function buildTeamEventMaps(
   return byTeam;
 }
 
-function toNextFixture(
-  event: number,
-  opponentId: string,
-  opponentShortName: string,
-  isHome: boolean,
-  metrics: Map<string, TeamMetrics>
-): NextFixture {
-  const rated = rateFixture(opponentId, isHome, metrics);
-  return {
-    event,
-    opponentShortName,
-    isHome,
-    ...rated,
-  };
-}
-
 export function computeNextFixtures(
   snapshots: CumulativeSnapshot[],
   schedule: TournamentSchedule,
@@ -233,9 +418,19 @@ export function computeNextFixtures(
 
   const eventMaps = buildTeamEventMaps(matches, teamIds);
 
-  const result = new Map<string, NextFixture[]>();
+  type Pending = {
+    teamId: string;
+    event: number;
+    opponentShortName: string;
+    isHome: boolean;
+    raw: FixtureRawRating;
+  };
+
+  const pending: Pending[] = [];
+  const pendingByTeam = new Map<string, Pending[]>();
+
   for (const teamId of teamIds) {
-    const upcoming: NextFixture[] = [];
+    const upcoming: Pending[] = [];
     const teamEvents = eventMaps.get(teamId) ?? new Map<string, number>();
 
     for (const match of matches) {
@@ -252,12 +447,37 @@ export function computeNextFixtures(
         ? match.awayContestantOptaSymId || "UNK"
         : match.homeContestantOptaSymId || "UNK";
       const event = teamEvents.get(match.id) ?? upcoming.length + 1;
+      const raw = rateFixtureRaw(teamId, opponentId, isHome, metrics);
 
-      upcoming.push(
-        toNextFixture(event, opponentId, opponentShortName, isHome, metrics)
-      );
+      const item: Pending = {
+        teamId,
+        event,
+        opponentShortName,
+        isHome,
+        raw,
+      };
+      upcoming.push(item);
+      pending.push(item);
     }
-    result.set(teamId, upcoming);
+    pendingByTeam.set(teamId, upcoming);
+  }
+
+  const bands = buildBandFns(pending.map((p) => p.raw));
+
+  const result = new Map<string, NextFixture[]>();
+  for (const [teamId, items] of pendingByTeam) {
+    result.set(
+      teamId,
+      items.map((item) => {
+        const rated = applyBands(item.raw, bands);
+        return {
+          event: item.event,
+          opponentShortName: item.opponentShortName,
+          isHome: item.isHome,
+          ...rated,
+        };
+      })
+    );
   }
 
   return result;

@@ -53,6 +53,10 @@ export interface NextFixture {
   fdrOff: FdrScore;
   fdrDef: FdrScore;
   fdrOverall: FdrScore;
+  /** Continuous difficulty (higher = harder); used for averages before banding. */
+  fdrOffRaw: number;
+  fdrDefRaw: number;
+  fdrOverallRaw: number;
 }
 
 export type RegressionStatus =
@@ -138,6 +142,9 @@ export interface TrackerFixtureCell {
   isHome: boolean;
   fdrOff: FdrScore;
   fdrDef: FdrScore;
+  fdrOffRaw: number;
+  fdrDefRaw: number;
+  fdrOverallRaw: number;
 }
 
 export interface FixtureTrackerTeamRow {

@@ -4,7 +4,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, PlusCircle } from "lucide-react";
 import { XGIVarianceBadge } from "@/components/analytics/xgi-variance-badge";
 import {
-  averageOverallFdr,
+  averagePositionFdr,
   AvgFdrCell,
   FixtureHorizonProvider,
   FixturesCell,
@@ -119,7 +119,8 @@ function getSortValue(
   key: SortKey,
   horizon: FixtureHorizon
 ): number | null {
-  if (key === "avgFdr") return averageOverallFdr(row.nextFixtures, horizon);
+  if (key === "avgFdr")
+    return averagePositionFdr(row.nextFixtures, horizon, row.position);
   if (key === "xGiVariance") return row.xGiVariance;
   return METRIC_GETTERS.get(key)?.(row) ?? null;
 }
@@ -377,13 +378,19 @@ export function MyTeamLastFixturesTable({
                     className={stickyTd()}
                     style={{ left: STICKY.next.left }}
                   >
-                    <FixturesCell fixtures={row.nextFixtures} />
+                    <FixturesCell
+                      fixtures={row.nextFixtures}
+                      position={row.position}
+                    />
                   </td>
                   <td
                     className={cn(stickyTd(true), "text-right")}
                     style={{ left: STICKY.fdr.left }}
                   >
-                    <AvgFdrCell fixtures={row.nextFixtures} />
+                    <AvgFdrCell
+                      fixtures={row.nextFixtures}
+                      position={row.position}
+                    />
                   </td>
                   {METRIC_COLS.slice(0, 9).map((col) => {
                     if (noMinutes) {

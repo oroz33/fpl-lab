@@ -10,7 +10,7 @@ import { PositionBadge } from "@/components/ui/position-badge";
 import {
   AvgFdrCell,
   FixturesCell,
-  averageOverallFdr,
+  averagePositionFdr,
   fixturesSortValue,
   getSyncedFixtureHorizon,
   type FixtureHorizon,
@@ -30,7 +30,7 @@ const fixturesCol: ColumnDef<PlayerRow> = {
   label: "Next",
   sortable: false,
   sticky: true,
-  render: (r) => <FixturesCell fixtures={r.nextFixtures} />,
+  render: (r) => <FixturesCell fixtures={r.nextFixtures} position={r.position} />,
   getValue: (r) => fixturesSortValue(r.nextFixtures),
 };
 
@@ -43,8 +43,9 @@ const avgFdrCol: ColumnDef<PlayerRow> = {
   digits: 2,
   heatmap: false,
   lowerIsBetter: true,
-  getValue: (r) => averageOverallFdr(r.nextFixtures, getSyncedFixtureHorizon()),
-  render: (r) => <AvgFdrCell fixtures={r.nextFixtures} />,
+  getValue: (r) =>
+    averagePositionFdr(r.nextFixtures, getSyncedFixtureHorizon(), r.position),
+  render: (r) => <AvgFdrCell fixtures={r.nextFixtures} position={r.position} />,
 };
 
 function createBaseCols({

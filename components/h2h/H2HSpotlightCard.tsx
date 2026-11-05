@@ -14,7 +14,7 @@ export function H2HSpotlightCard({
   player: PlayerRow;
   accent: "emerald" | "secondary";
 }) {
-  const fdrAvg = avgNextFdr(player, "overall");
+  const fdrAvg = avgNextFdr(player, "position");
   const tagColor =
     accent === "emerald" ? "text-on-tertiary-container" : "text-secondary";
 
@@ -69,7 +69,10 @@ export function H2HSpotlightCard({
           Next 3 Runs
           {fdrAvg !== null ? ` (Avg ${formatNum(fdrAvg)} FDR)` : ""}
         </span>
-        <FixtureBadges fixtures={player.nextFixtures ?? []} />
+        <FixtureBadges
+          fixtures={player.nextFixtures ?? []}
+          position={player.position}
+        />
       </div>
     </div>
   );

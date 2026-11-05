@@ -46,6 +46,10 @@ function cellFdr(cell: TrackerFixtureCell, perspective: FdrPerspective): number 
   return perspective === "offensive" ? cell.fdrOff : cell.fdrDef;
 }
 
+function cellFdrRaw(cell: TrackerFixtureCell, perspective: FdrPerspective): number {
+  return perspective === "offensive" ? cell.fdrOffRaw : cell.fdrDefRaw;
+}
+
 function averageVisibleFdr(
   team: FixtureTrackerTeamRow,
   gws: number[],
@@ -54,7 +58,7 @@ function averageVisibleFdr(
   const scores: number[] = [];
   for (const gw of gws) {
     for (const cell of team.byGw[gw] ?? []) {
-      scores.push(cellFdr(cell, perspective));
+      scores.push(cellFdrRaw(cell, perspective));
     }
   }
   if (!scores.length) return null;

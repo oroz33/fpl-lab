@@ -45,14 +45,22 @@ export function shotConversion(player: PlayerRow): number | null {
 
 export function avgNextFdr(
   player: PlayerRow,
-  mode: "overall" | "off" | "def" = "overall"
+  mode: "overall" | "off" | "def" | "position" = "position"
 ): number | null {
   const fixtures = player.nextFixtures ?? [];
   if (!fixtures.length) return null;
+  const resolved =
+    mode === "position"
+      ? player.position === "GKP" || player.position === "DEF"
+        ? "def"
+        : player.position === "MID" || player.position === "FWD"
+          ? "off"
+          : "overall"
+      : mode;
   const sum = fixtures.reduce((acc, f) => {
-    if (mode === "off") return acc + f.fdrOff;
-    if (mode === "def") return acc + f.fdrDef;
-    return acc + f.fdrOverall;
+    if (resolved === "off") return acc + (f.fdrOffRaw ?? f.fdrOff);
+    if (resolved === "def") return acc + (f.fdrDefRaw ?? f.fdrDef);
+    return acc + (f.fdrOverallRaw ?? f.fdrOverall);
   }, 0);
   return round(sum / fixtures.length, 2);
 }

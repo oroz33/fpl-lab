@@ -28,8 +28,16 @@ export function InsightCards({
       .map((p) => {
         const fixtures = p.nextFixtures ?? [];
         if (fixtures.length < 2) return null;
+        const useDef = p.position === "GKP" || p.position === "DEF";
         const avg =
-          fixtures.reduce((sum, f) => sum + f.fdrDef, 0) / fixtures.length;
+          fixtures.reduce(
+            (sum, f) =>
+              sum +
+              (useDef
+                ? (f.fdrDefRaw ?? f.fdrDef)
+                : (f.fdrOffRaw ?? f.fdrOff)),
+            0
+          ) / fixtures.length;
         return { player: p, avg, fixtures };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null && x.avg <= 2.5)

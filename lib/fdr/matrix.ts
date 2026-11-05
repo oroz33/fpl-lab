@@ -5,9 +5,12 @@ import type {
   TrackerFixtureCell,
 } from "@/lib/types";
 import {
+  applyBands,
+  buildBandFns,
   buildTeamMetrics,
   flattenScheduleMatches,
-  rateFixture,
+  rateFixtureRaw,
+  type FixtureRawRating,
   type ScheduleMatch,
   type TournamentSchedule,
 } from "@/lib/fdr/engine";
@@ -115,7 +118,14 @@ export function buildFixtureMatrix(
   }
 
   const teamMeta = new Map<string, { teamCode: string; teamName: string }>();
-  const byTeamGw = new Map<string, Map<number, TrackerFixtureCell[]>>();
+  type PendingCell = {
+    teamId: string;
+    gw: number;
+    opponentCode: string;
+    isHome: boolean;
+    raw: FixtureRawRating;
+  };
+  const pendingCells: PendingCell[] = [];
 
   for (const match of matches) {
     const gw = matchGw.get(match.id);
@@ -148,22 +158,38 @@ export function buildFixtureMatrix(
         });
       }
 
-      let gwMap = byTeamGw.get(side.teamId);
-      if (!gwMap) {
-        gwMap = new Map();
-        byTeamGw.set(side.teamId, gwMap);
-      }
-      const rated = rateFixture(side.opponentId, side.isHome, metrics);
-      const cell: TrackerFixtureCell = {
+      pendingCells.push({
+        teamId: side.teamId,
+        gw,
         opponentCode: side.opponentCode,
         isHome: side.isHome,
-        fdrOff: rated.fdrOff,
-        fdrDef: rated.fdrDef,
-      };
-      const existing = gwMap.get(gw) ?? [];
-      existing.push(cell);
-      gwMap.set(gw, existing);
+        raw: rateFixtureRaw(side.teamId, side.opponentId, side.isHome, metrics),
+      });
     }
+  }
+
+  const bands = buildBandFns(pendingCells.map((c) => c.raw));
+
+  const byTeamGw = new Map<string, Map<number, TrackerFixtureCell[]>>();
+  for (const pending of pendingCells) {
+    const rated = applyBands(pending.raw, bands);
+    let gwMap = byTeamGw.get(pending.teamId);
+    if (!gwMap) {
+      gwMap = new Map();
+      byTeamGw.set(pending.teamId, gwMap);
+    }
+    const cell: TrackerFixtureCell = {
+      opponentCode: pending.opponentCode,
+      isHome: pending.isHome,
+      fdrOff: rated.fdrOff,
+      fdrDef: rated.fdrDef,
+      fdrOffRaw: rated.fdrOffRaw,
+      fdrDefRaw: rated.fdrDefRaw,
+      fdrOverallRaw: rated.fdrOverallRaw,
+    };
+    const existing = gwMap.get(pending.gw) ?? [];
+    existing.push(cell);
+    gwMap.set(pending.gw, existing);
   }
 
   const teams: FixtureTrackerTeamRow[] = [...teamMeta.entries()]

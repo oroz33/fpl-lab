@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { NextFixture } from "@/lib/types";
+import type { FdrScore, NextFixture, Position } from "@/lib/types";
 import { cn, round } from "@/lib/utils";
 import {
   Tooltip,
@@ -20,6 +20,7 @@ export const FDR_COLORS: Record<number, string> = {
 };
 
 export type FixtureHorizon = 3 | 5;
+export type FdrMode = "overall" | "off" | "def";
 
 /** Module sync so ColumnDef getValue can read the active horizon for sort/filter. */
 let syncedHorizon: FixtureHorizon = 3;
@@ -70,13 +71,48 @@ function fixtureLabel(f: NextFixture): string {
   return `${f.opponentShortName} (${f.isHome ? "H" : "A"})`;
 }
 
+/** GK/DEF → defensive FDR; MID/FWD → offensive FDR. */
+export function fdrPerspectiveForPosition(position: Position | undefined): FdrMode {
+  if (position === "GKP" || position === "DEF") return "def";
+  if (position === "MID" || position === "FWD") return "off";
+  return "overall";
+}
+
+export function pickFdr(fixture: NextFixture, mode: FdrMode): FdrScore {
+  if (mode === "off") return fixture.fdrOff;
+  if (mode === "def") return fixture.fdrDef;
+  return fixture.fdrOverall;
+}
+
+export function pickFdrRaw(fixture: NextFixture, mode: FdrMode): number {
+  if (mode === "off") return fixture.fdrOffRaw;
+  if (mode === "def") return fixture.fdrDefRaw;
+  return fixture.fdrOverallRaw;
+}
+
 export function averageOverallFdr(
   fixtures: NextFixture[] | undefined,
   horizon: FixtureHorizon
 ): number | null {
+  return averageFdrByMode(fixtures, horizon, "overall");
+}
+
+export function averagePositionFdr(
+  fixtures: NextFixture[] | undefined,
+  horizon: FixtureHorizon,
+  position: Position | undefined
+): number | null {
+  return averageFdrByMode(fixtures, horizon, fdrPerspectiveForPosition(position));
+}
+
+export function averageFdrByMode(
+  fixtures: NextFixture[] | undefined,
+  horizon: FixtureHorizon,
+  mode: FdrMode
+): number | null {
   const slice = (fixtures ?? []).slice(0, horizon);
   if (!slice.length) return null;
-  const sum = slice.reduce((acc, f) => acc + f.fdrOverall, 0);
+  const sum = slice.reduce((acc, f) => acc + pickFdrRaw(f, mode), 0);
   return round(sum / slice.length, 2);
 }
 
@@ -89,10 +125,17 @@ export function avgFdrToneClass(avg: number): string {
 export function FixtureBadges({
   fixtures,
   horizon = 3,
+  position,
+  mode,
 }: {
   fixtures: NextFixture[];
   horizon?: FixtureHorizon;
+  /** When set, badge color uses Off (MID/FWD) or Def (GKP/DEF). */
+  position?: Position;
+  /** Explicit mode overrides position. Default overall when neither set. */
+  mode?: FdrMode;
 }) {
+  const resolved = mode ?? fdrPerspectiveForPosition(position);
   const visible = fixtures.slice(0, horizon);
   if (!visible.length) {
     return <span className="text-[10px] text-on-surface-variant/50">—</span>;
@@ -104,6 +147,7 @@ export function FixtureBadges({
         {visible.map((fixture) => {
           const label = fixtureLabel(fixture);
           const compact = horizon === 5;
+          const score = pickFdr(fixture, resolved);
           return (
             <Tooltip
               key={`${fixture.event}-${fixture.opponentShortName}-${fixture.isHome}`}
@@ -115,7 +159,7 @@ export function FixtureBadges({
                     compact
                       ? "px-1 py-0.5 text-[9px]"
                       : "px-1.5 py-0.5 text-[9.5px]",
-                    FDR_COLORS[fixture.fdrOverall] ?? FDR_COLORS[3]
+                    FDR_COLORS[score] ?? FDR_COLORS[3]
                   )}
                 >
                   {label}
@@ -123,8 +167,9 @@ export function FixtureBadges({
               </TooltipTrigger>
               <TooltipContent side="top">
                 <div className="font-data-mono text-[11px] tabular-nums text-slate-900">
-                  {label} • Overall FDR: {fixture.fdrOverall} | Off FDR:{" "}
-                  {fixture.fdrOff} | Def FDR: {fixture.fdrDef}
+                  {label} • Shown: {resolved.toUpperCase()} {score} | Overall:{" "}
+                  {fixture.fdrOverall} | Off: {fixture.fdrOff} | Def:{" "}
+                  {fixture.fdrDef}
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -135,18 +180,36 @@ export function FixtureBadges({
   );
 }
 
-export function FixturesCell({ fixtures }: { fixtures: NextFixture[] | undefined }) {
+export function FixturesCell({
+  fixtures,
+  position,
+}: {
+  fixtures: NextFixture[] | undefined;
+  position?: Position;
+}) {
   const { horizon } = useFixtureHorizon();
   return (
     <div className="w-full max-w-full overflow-hidden">
-      <FixtureBadges fixtures={fixtures ?? []} horizon={horizon} />
+      <FixtureBadges
+        fixtures={fixtures ?? []}
+        horizon={horizon}
+        position={position}
+      />
     </div>
   );
 }
 
-export function AvgFdrCell({ fixtures }: { fixtures: NextFixture[] | undefined }) {
+export function AvgFdrCell({
+  fixtures,
+  position,
+}: {
+  fixtures: NextFixture[] | undefined;
+  position?: Position;
+}) {
   const { horizon } = useFixtureHorizon();
-  const avg = averageOverallFdr(fixtures, horizon);
+  const avg = position
+    ? averagePositionFdr(fixtures, horizon, position)
+    : averageOverallFdr(fixtures, horizon);
   if (avg === null) {
     return <span className="text-on-surface-variant/50">—</span>;
   }
