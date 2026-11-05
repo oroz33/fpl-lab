@@ -114,14 +114,13 @@ export function percentileAmong(
 }
 
 export type RadarAxisKey =
-  | "dcg"
-  | "minsApp"
-  | "xgi"
+  | "mins"
+  | "apps"
+  | "xg"
   | "bccKp"
-  | "setPieces"
-  | "cs"
-  | "ga"
-  | "shots";
+  | "xgi"
+  | "dcg"
+  | "setPieces";
 
 export type RadarAxisDef = {
   key: RadarAxisKey;
@@ -146,69 +145,80 @@ function bccKpTotal(p: PlayerRow): number {
   return (p.bigChancesCreated ?? 0) + (p.keyPasses ?? 0);
 }
 
-const SHARED_RADAR_AXES: RadarAxisDef[] = [
-  {
-    key: "minsApp",
-    label: "Mins/App",
-    digits: 1,
-    get: (p) => minsPerApp(p),
-  },
-  {
-    key: "xgi",
-    label: "xGI",
-    digits: 2,
-    get: (p, mode) => scaleValue(p.xGI, p.mins, mode),
-  },
-  {
-    key: "bccKp",
-    label: "BCC + KP",
-    digits: 0,
-    get: (p, mode) => scaleValue(bccKpTotal(p), p.mins, mode),
-  },
-  {
-    key: "setPieces",
-    label: "Set Pieces",
-    digits: 0,
-    get: (p, mode) => scaleValue(setPiecesTotal(p), p.mins, mode),
-  },
-];
+/** Shared middle/end axes for both radar sets (order varies per set). */
+const AXIS_MINS: RadarAxisDef = {
+  key: "mins",
+  label: "Mins",
+  digits: 0,
+  get: (p) => (Number.isFinite(p.mins) ? p.mins : null),
+};
 
+const AXIS_APPS: RadarAxisDef = {
+  key: "apps",
+  label: "Apps",
+  digits: 0,
+  get: (p) => (Number.isFinite(p.apps) ? p.apps : null),
+};
+
+const AXIS_XG: RadarAxisDef = {
+  key: "xg",
+  label: "xG",
+  digits: 2,
+  get: (p, mode) => scaleValue(p.xG, p.mins, mode),
+};
+
+const AXIS_BCC_KP: RadarAxisDef = {
+  key: "bccKp",
+  label: "KP + BCC",
+  digits: 0,
+  get: (p, mode) => scaleValue(bccKpTotal(p), p.mins, mode),
+};
+
+const AXIS_XGI: RadarAxisDef = {
+  key: "xgi",
+  label: "xGI",
+  digits: 2,
+  get: (p, mode) => scaleValue(p.xGI, p.mins, mode),
+};
+
+const AXIS_DCG: RadarAxisDef = {
+  key: "dcg",
+  label: "DC/G",
+  digits: 2,
+  get: (p) => p.dcPerGame,
+};
+
+const AXIS_SET_PIECES: RadarAxisDef = {
+  key: "setPieces",
+  label: "Set Pieces",
+  digits: 0,
+  get: (p, mode) => scaleValue(setPiecesTotal(p), p.mins, mode),
+};
+
+/** Either player is DEF: Mins, xG, KP+BCC, xGI, DC/G, Set Pieces. */
 const DEFENSIVE_RADAR_AXES: RadarAxisDef[] = [
-  {
-    key: "dcg",
-    label: "DC/G",
-    digits: 2,
-    get: (p) => p.dcPerGame,
-  },
-  ...SHARED_RADAR_AXES,
-  {
-    key: "cs",
-    label: "CS",
-    digits: 0,
-    get: (p, mode) => scaleValue(p.cleanSheets ?? 0, p.mins, mode),
-  },
+  AXIS_MINS,
+  AXIS_XG,
+  AXIS_BCC_KP,
+  AXIS_XGI,
+  AXIS_DCG,
+  AXIS_SET_PIECES,
 ];
 
+/** MID/FWD only: Apps, Mins, xG, KP+BCC, xGI, Set Pieces. */
 const ATTACKING_RADAR_AXES: RadarAxisDef[] = [
-  {
-    key: "ga",
-    label: "G+A",
-    digits: 0,
-    get: (p, mode) => scaleValue(p.gi, p.mins, mode),
-  },
-  ...SHARED_RADAR_AXES,
-  {
-    key: "shots",
-    label: "Shots",
-    digits: 0,
-    get: (p, mode) => scaleValue(p.shots, p.mins, mode),
-  },
+  AXIS_APPS,
+  AXIS_MINS,
+  AXIS_XG,
+  AXIS_BCC_KP,
+  AXIS_XGI,
+  AXIS_SET_PIECES,
 ];
 
-/** Defensive set when neither player is FWD; otherwise attacking (incl. DEF vs FWD). */
+/** Defensive set when either player is DEF; otherwise attacking (MID/FWD only). */
 export function radarAxisSetForPair(a: Position, b: Position): RadarAxisSet {
-  if (a === "FWD" || b === "FWD") return "attacking";
-  return "defensive";
+  if (a === "DEF" || b === "DEF") return "defensive";
+  return "attacking";
 }
 
 export function radarAxesForPair(a: Position, b: Position): RadarAxisDef[] {
@@ -272,117 +282,108 @@ export function radarPercentiles(
 
 export const MATRIX_CATEGORIES: MatrixCategory[] = [
   {
-    id: "attack",
-    title: "1. Attacking Forensics & Goal Threat",
+    id: "general",
+    title: "1. General",
     metrics: [
       {
-        key: "xG",
-        label: "Expected Goals (xG)",
-        get: (p, mode) => scaleValue(p.xG, p.mins, mode),
-      },
-      {
-        key: "shots",
-        label: "Total Shots",
-        digits: 2,
-        get: (p, mode) => scaleValue(p.shots, p.mins, mode),
-      },
-      {
-        key: "sot",
-        label: "Shots on Target (SoT)",
-        get: (p, mode) => scaleValue(p.shotsOnTarget, p.mins, mode),
-      },
-      {
-        key: "sib",
-        label: "Shots in Box (SIB)",
-        get: (p, mode) => scaleValue(p.shotsInsideBox, p.mins, mode),
-      },
-      {
-        key: "bc",
-        label: "Big Chances (BC)",
-        get: (p, mode) => scaleValue(p.bigChances, p.mins, mode),
-      },
-      {
-        key: "npxG",
-        label: "Non-Penalty xG (npxG)",
-        get: (p, mode) => scaleValue(approxNpxG(p), p.mins, mode),
-      },
-      {
-        key: "conv",
-        label: "Shot Conversion %",
-        format: "percent",
-        digits: 1,
-        get: (p) => shotConversion(p),
-      },
-      {
-        key: "goals",
-        label: "Goals",
+        key: "apps",
+        label: "Appearances",
         digits: 0,
-        get: (p, mode) => scaleValue(p.goals, p.mins, mode),
+        get: (p) => (Number.isFinite(p.apps) ? p.apps : null),
+      },
+      {
+        key: "mins",
+        label: "Minutes",
+        digits: 0,
+        get: (p) => (Number.isFinite(p.mins) ? p.mins : null),
+      },
+      {
+        key: "minsApp",
+        label: "Avg Minutes / Game",
+        digits: 1,
+        get: (p) => {
+          const v = minsPerApp(p);
+          return v > 0 ? v : null;
+        },
       },
     ],
   },
   {
-    id: "creativity",
-    title: "2. Creativity, Passing & Transition Service",
+    id: "attack",
+    title: "2. Attacking",
     metrics: [
       {
-        key: "xA",
-        label: "Expected Assists (xA)",
-        get: (p, mode) => scaleValue(p.xA, p.mins, mode),
+        key: "shots",
+        label: "Shots",
+        digits: 2,
+        get: (p, mode) => scaleValue(p.shots, p.mins, mode),
+      },
+      {
+        key: "xG",
+        label: "xG",
+        get: (p, mode) => scaleValue(p.xG, p.mins, mode),
       },
       {
         key: "kp",
-        label: "Key Passes (KP)",
+        label: "KP",
         get: (p, mode) => scaleValue(p.keyPasses, p.mins, mode),
       },
       {
         key: "bcc",
-        label: "Big Chances Created (BCC)",
+        label: "BCC",
         get: (p, mode) => scaleValue(p.bigChancesCreated, p.mins, mode),
       },
       {
-        key: "assists",
-        label: "Assists",
+        key: "kpBcc",
+        label: "KP + BCC",
         digits: 0,
-        get: (p, mode) => scaleValue(p.assists, p.mins, mode),
+        get: (p, mode) => scaleValue(bccKpTotal(p), p.mins, mode),
+      },
+      {
+        key: "xA",
+        label: "xA",
+        get: (p, mode) => scaleValue(p.xA, p.mins, mode),
       },
       {
         key: "xGI",
-        label: "Expected Goal Involvement (xGI)",
+        label: "xGI",
         get: (p, mode) => scaleValue(p.xGI, p.mins, mode),
       },
     ],
   },
   {
-    id: "value",
-    title: "3. Ball Winning & Schedule Toughness",
+    id: "defense",
+    title: "3. Defensive",
     metrics: [
       {
-        key: "rec",
-        label: "Recoveries",
-        get: (p, mode) => scaleValue(p.recoveries, p.mins, mode),
-      },
-      {
-        key: "tck",
-        label: "Tackles",
-        get: (p, mode) => scaleValue(p.tackles, p.mins, mode),
-      },
-      {
-        key: "int",
-        label: "Interceptions",
-        get: (p, mode) => scaleValue(p.interceptions, p.mins, mode),
-      },
-      {
-        key: "clr",
-        label: "Clearances",
-        get: (p, mode) => scaleValue(p.clearances, p.mins, mode),
-      },
-      {
-        key: "fdr",
-        label: "Next 3 FDR Rating",
-        lowerIsBetter: true,
+        key: "dcg",
+        label: "DC/G",
         digits: 2,
-        get: (p) => avgNextFdr(p, "overall"),
+        get: (p) => p.dcPerGame,
+      },
+    ],
+  },
+  {
+    id: "setPieces",
+    title: "4. Set Pieces",
+    metrics: [
+      {
+        key: "corners",
+        label: "Corners",
+        digits: 0,
+        get: (p, mode) => scaleValue(p.corners ?? 0, p.mins, mode),
+      },
+      {
+        key: "fkTaken",
+        label: "FK Taken",
+        digits: 0,
+        get: (p, mode) => scaleValue(p.freeKicksTaken ?? 0, p.mins, mode),
+      },
+      {
+        key: "pens",
+        label: "Pens",
+        digits: 0,
+        get: (p, mode) => scaleValue(p.penaltyGoals ?? 0, p.mins, mode),
       },
     ],
   },
