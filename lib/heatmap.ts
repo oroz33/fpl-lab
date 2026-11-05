@@ -75,6 +75,13 @@ export function buildHeatThresholds(
   return { p5, p975, allowBottom };
 }
 
+/** Favorites mode: 1–5 → top/bottom 1, 6–10 → 2, 11+ → 3. */
+export function favoritesHeatmapTopN(count: number): number {
+  if (count <= 5) return 1;
+  if (count <= 10) return 2;
+  return 3;
+}
+
 /**
  * Rank heat: N best → emerald, N worst → rose.
  * Tie rule: any value equal to the Nth cutoff is colored (may exceed N cells).

@@ -315,6 +315,7 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              showFavoritesOnly={showFavoritesOnly}
               nextHorizon={nextHorizon}
               onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}
@@ -325,6 +326,7 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              showFavoritesOnly={showFavoritesOnly}
               nextHorizon={nextHorizon}
               onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}
@@ -335,6 +337,7 @@ export function Dashboard() {
               rows={displayPlayers}
               favoritePlayerIds={favoritePlayerIds}
               onToggleFavorite={toggleFavorite}
+              showFavoritesOnly={showFavoritesOnly}
               nextHorizon={nextHorizon}
               onNextHorizonChange={setNextHorizon}
               onFiltersChange={setColumnFilters}

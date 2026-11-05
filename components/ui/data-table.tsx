@@ -183,6 +183,7 @@ export function DataTable<T extends { id: string }>({
   onFiltersChange,
   horizon: horizonProp,
   onHorizonChange,
+  heatmapTopNOverride,
 }: {
   columns: ColumnDef<T>[];
   rows: T[];
@@ -191,6 +192,11 @@ export function DataTable<T extends { id: string }>({
   /** When set with onHorizonChange, horizon is controlled by the parent (e.g. Dashboard). */
   horizon?: FixtureHorizon;
   onHorizonChange?: (horizon: FixtureHorizon) => void;
+  /**
+   * When set, heatmap-enabled numeric columns use top/bottom-N rank heat
+   * instead of percentiles. Per-column `heatmapTopN` still takes precedence.
+   */
+  heatmapTopNOverride?: number;
 }) {
   const [sort, setSort] = useState<SortState>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -238,17 +244,23 @@ export function DataTable<T extends { id: string }>({
         const v = cellValue(row, col);
         if (typeof v === "number" && Number.isFinite(v)) values.push(v);
       }
-      const thresholds =
+      const topN =
         typeof col.heatmapTopN === "number" && col.heatmapTopN > 0
+          ? col.heatmapTopN
+          : typeof heatmapTopNOverride === "number" && heatmapTopNOverride > 0
+            ? heatmapTopNOverride
+            : undefined;
+      const thresholds =
+        typeof topN === "number"
           ? buildTopBottomHeat(values, {
-              n: col.heatmapTopN,
+              n: topN,
               lowerIsBetter: col.lowerIsBetter,
             })
           : buildHeatThresholds(values);
       if (thresholds) map.set(col.key, thresholds);
     }
     return map;
-  }, [columns, sorted]);
+  }, [columns, sorted, heatmapTopNOverride]);
 
   const columnValues = useMemo(() => {
     const map = new Map<string, number[]>();

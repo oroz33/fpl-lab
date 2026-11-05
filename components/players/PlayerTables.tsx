@@ -16,11 +16,13 @@ import {
   type FixtureHorizon,
 } from "@/components/ui/fixture-badges";
 import { TeamAccentLabel } from "@/components/ui/team-accent";
+import { favoritesHeatmapTopN } from "@/lib/heatmap";
 import { cn } from "@/lib/utils";
 
 type FavoriteProps = {
   favoritePlayerIds: Set<string>;
   onToggleFavorite: (id: string) => void;
+  showFavoritesOnly?: boolean;
 };
 
 const fixturesCol: ColumnDef<PlayerRow> = {
@@ -201,6 +203,7 @@ export function AttackTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  showFavoritesOnly,
   nextHorizon,
   onNextHorizonChange,
   onFiltersChange,
@@ -216,6 +219,9 @@ export function AttackTable({
       horizon={nextHorizon}
       onHorizonChange={onNextHorizonChange}
       onFiltersChange={onFiltersChange}
+      heatmapTopNOverride={
+        showFavoritesOnly ? favoritesHeatmapTopN(rows.length) : undefined
+      }
     />
   );
 }
@@ -224,6 +230,7 @@ export function SetPiecesTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  showFavoritesOnly,
   nextHorizon,
   onNextHorizonChange,
   onFiltersChange,
@@ -239,6 +246,9 @@ export function SetPiecesTable({
       horizon={nextHorizon}
       onHorizonChange={onNextHorizonChange}
       onFiltersChange={onFiltersChange}
+      heatmapTopNOverride={
+        showFavoritesOnly ? favoritesHeatmapTopN(rows.length) : undefined
+      }
     />
   );
 }
@@ -247,6 +257,7 @@ export function DefendingTable({
   rows,
   favoritePlayerIds,
   onToggleFavorite,
+  showFavoritesOnly,
   nextHorizon,
   onNextHorizonChange,
   onFiltersChange,
@@ -262,6 +273,9 @@ export function DefendingTable({
       horizon={nextHorizon}
       onHorizonChange={onNextHorizonChange}
       onFiltersChange={onFiltersChange}
+      heatmapTopNOverride={
+        showFavoritesOnly ? favoritesHeatmapTopN(rows.length) : undefined
+      }
     />
   );
 }
