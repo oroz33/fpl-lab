@@ -586,4 +586,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.8.3 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.8.4 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
