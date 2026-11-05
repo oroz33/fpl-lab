@@ -28,8 +28,8 @@ export type TeamMetrics = VenueMetrics & {
   away: VenueMetrics;
 };
 
-/** Small tie-break after venue-split metrics (home easier). */
-const VENUE_NUDGE = 0.15;
+/** Strong home/away shift so elite away ≈5 and elite home ≈4. */
+const VENUE_DELTA = 0.9;
 
 /** Prefer venue bucket only when it has at least this many matches. */
 const MIN_VENUE_GAMES = 3;
@@ -61,8 +61,18 @@ export type FixtureRating = FixtureRawRating & {
   fdrOverall: FdrScore;
 };
 
+/** League reference arrays for absolute opponent ranking (sorted ascending). */
+export type LeagueScales = {
+  seasonXg: number[];
+  seasonNegXgc: number[];
+};
+
 export function clampRound(value: number): FdrScore {
   return Math.min(5, Math.max(1, Math.round(value))) as FdrScore;
+}
+
+function clampContinuous(value: number): number {
+  return Math.min(5, Math.max(1, value));
 }
 
 function matchKickoffMs(match: ScheduleMatch): number {
@@ -171,7 +181,6 @@ export function buildTeamMetrics(
     }
   }
 
-  /** matchId → teamId → xG in that match */
   const matchTeamXg = new Map<string, Map<string, number>>();
   const teamMatchMeta = new Map<
     string,
@@ -255,41 +264,7 @@ export function buildTeamMetrics(
   return metrics;
 }
 
-function venueSlice(metrics: TeamMetrics, atHome: boolean): VenueMetrics {
-  return atHome ? metrics.home : metrics.away;
-}
-
-/**
- * Continuous matchup difficulty (higher = harder).
- * Off ease = our attack − their defence; inverted for FDR.
- * Def hard = their attack − our defence.
- */
-export function rateFixtureRaw(
-  teamId: string,
-  opponentId: string,
-  isHome: boolean,
-  metrics: Map<string, TeamMetrics>
-): FixtureRawRating {
-  const us = metrics.get(teamId);
-  const opp = metrics.get(opponentId);
-  if (!us || !opp) {
-    return { fdrOffRaw: 3, fdrDefRaw: 3, fdrOverallRaw: 3 };
-  }
-
-  const ourSlice = venueSlice(us, isHome);
-  const oppSlice = venueSlice(opp, !isHome);
-  const nudge = isHome ? -VENUE_NUDGE : VENUE_NUDGE;
-
-  const offEase = ourSlice.xGPer90 - oppSlice.xGCPer90;
-  const defHard = oppSlice.xGPer90 - ourSlice.xGCPer90;
-  const fdrOffRaw = -offEase + nudge;
-  const fdrDefRaw = defHard + nudge;
-  const fdrOverallRaw = (fdrOffRaw + fdrDefRaw) / 2;
-
-  return { fdrOffRaw, fdrDefRaw, fdrOverallRaw };
-}
-
-/** Percentile rank → continuous FDR in [1, 5] (higher difficulty → higher score). */
+/** Percentile rank → continuous FDR in [1, 5] (higher value → harder). */
 export function continuousRankToFdr(value: number, sortedAsc: number[]): number {
   if (!sortedAsc.length) return 3;
   let below = 0;
@@ -302,78 +277,61 @@ export function continuousRankToFdr(value: number, sortedAsc: number[]): number 
   return 1 + pct * 4;
 }
 
-/** Map continuous values to FDR 1–5 via quintiles (higher value → harder → 5). */
-export function bandByQuintiles(values: number[]): (value: number) => FdrScore {
-  if (values.length === 0) {
-    return () => 3;
+export function buildLeagueScales(metrics: Map<string, TeamMetrics>): LeagueScales {
+  const seasonXg: number[] = [];
+  const seasonNegXgc: number[] = [];
+  for (const m of metrics.values()) {
+    seasonXg.push(m.xGPer90);
+    seasonNegXgc.push(-m.xGCPer90);
   }
-  const sorted = [...values].sort((a, b) => a - b);
-  const thresholdAt = (p: number) => {
-    const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1));
-    return sorted[idx]!;
-  };
-  const t1 = thresholdAt(0.2);
-  const t2 = thresholdAt(0.4);
-  const t3 = thresholdAt(0.6);
-  const t4 = thresholdAt(0.8);
-
-  return (value: number): FdrScore => {
-    if (value <= t1) return 1;
-    if (value <= t2) return 2;
-    if (value <= t3) return 3;
-    if (value <= t4) return 4;
-    return 5;
-  };
-}
-
-export type BandFns = {
-  bandOff: (v: number) => FdrScore;
-  bandDef: (v: number) => FdrScore;
-  bandOverall: (v: number) => FdrScore;
-  sortedOff: number[];
-  sortedDef: number[];
-  sortedOverall: number[];
-};
-
-export function buildBandFns(raws: FixtureRawRating[]): BandFns {
-  const sortedOff = [...raws.map((r) => r.fdrOffRaw)].sort((a, b) => a - b);
-  const sortedDef = [...raws.map((r) => r.fdrDefRaw)].sort((a, b) => a - b);
-  const sortedOverall = [...raws.map((r) => r.fdrOverallRaw)].sort((a, b) => a - b);
+  const asc = (a: number, b: number) => a - b;
   return {
-    bandOff: bandByQuintiles(sortedOff),
-    bandDef: bandByQuintiles(sortedDef),
-    bandOverall: bandByQuintiles(sortedOverall),
-    sortedOff,
-    sortedDef,
-    sortedOverall,
+    seasonXg: [...seasonXg].sort(asc),
+    seasonNegXgc: [...seasonNegXgc].sort(asc),
   };
 }
 
-/** Band integers + rewrite raw fields onto continuous 1–5 for averages. */
-export function applyBands(raw: FixtureRawRating, bands: BandFns): FixtureRating {
-  return {
-    fdrOffRaw: continuousRankToFdr(raw.fdrOffRaw, bands.sortedOff),
-    fdrDefRaw: continuousRankToFdr(raw.fdrDefRaw, bands.sortedDef),
-    fdrOverallRaw: continuousRankToFdr(raw.fdrOverallRaw, bands.sortedOverall),
-    fdrOff: bands.bandOff(raw.fdrOffRaw),
-    fdrDef: bands.bandDef(raw.fdrDefRaw),
-    fdrOverall: bands.bandOverall(raw.fdrOverallRaw),
-  };
-}
-
-/** @deprecated Use rateFixtureRaw + bandByQuintiles; kept for any legacy callers. */
-export function rateFixture(
-  teamId: string,
+/**
+ * Opponent-only difficulty (same for every team facing this opponent).
+ * Base from season xG/xGC league ranks; ±0.9 venue (home easier / away harder).
+ * Off ← opp defence (low xGC = hard); Def ← opp attack (high xG = hard).
+ */
+export function rateFixtureRaw(
   opponentId: string,
   isHome: boolean,
-  metrics: Map<string, TeamMetrics>
+  metrics: Map<string, TeamMetrics>,
+  scales: LeagueScales
+): FixtureRawRating {
+  const opp = metrics.get(opponentId);
+  if (!opp) {
+    return { fdrOffRaw: 3, fdrDefRaw: 3, fdrOverallRaw: 3 };
+  }
+
+  const venue = isHome ? -VENUE_DELTA : VENUE_DELTA;
+
+  // Season ranks = Crellin-style team strength; venue is a separate band shift.
+  const offBase = continuousRankToFdr(-opp.xGCPer90, scales.seasonNegXgc);
+  const defBase = continuousRankToFdr(opp.xGPer90, scales.seasonXg);
+
+  const fdrOffRaw = clampContinuous(offBase + venue);
+  const fdrDefRaw = clampContinuous(defBase + venue);
+  const fdrOverallRaw = clampContinuous((fdrOffRaw + fdrDefRaw) / 2);
+
+  return { fdrOffRaw, fdrDefRaw, fdrOverallRaw };
+}
+
+export function rateFixture(
+  opponentId: string,
+  isHome: boolean,
+  metrics: Map<string, TeamMetrics>,
+  scales: LeagueScales
 ): FixtureRating {
-  const raw = rateFixtureRaw(teamId, opponentId, isHome, metrics);
+  const raw = rateFixtureRaw(opponentId, isHome, metrics, scales);
   return {
     ...raw,
-    fdrOff: clampRound(raw.fdrOffRaw + 3),
-    fdrDef: clampRound(raw.fdrDefRaw + 3),
-    fdrOverall: clampRound(raw.fdrOverallRaw + 3),
+    fdrOff: clampRound(raw.fdrOffRaw),
+    fdrDef: clampRound(raw.fdrDefRaw),
+    fdrOverall: clampRound(raw.fdrOverallRaw),
   };
 }
 
@@ -404,6 +362,7 @@ export function computeNextFixtures(
   limit = 3
 ): Map<string, NextFixture[]> {
   const metrics = buildTeamMetrics(snapshots);
+  const scales = buildLeagueScales(metrics);
   const cutoff = getStoreCutoffMs(snapshots, schedule);
   const matches = flattenScheduleMatches(schedule).sort(
     (a, b) => matchKickoffMs(a) - matchKickoffMs(b)
@@ -417,20 +376,10 @@ export function computeNextFixtures(
   }
 
   const eventMaps = buildTeamEventMaps(matches, teamIds);
-
-  type Pending = {
-    teamId: string;
-    event: number;
-    opponentShortName: string;
-    isHome: boolean;
-    raw: FixtureRawRating;
-  };
-
-  const pending: Pending[] = [];
-  const pendingByTeam = new Map<string, Pending[]>();
+  const result = new Map<string, NextFixture[]>();
 
   for (const teamId of teamIds) {
-    const upcoming: Pending[] = [];
+    const upcoming: NextFixture[] = [];
     const teamEvents = eventMaps.get(teamId) ?? new Map<string, number>();
 
     for (const match of matches) {
@@ -447,37 +396,16 @@ export function computeNextFixtures(
         ? match.awayContestantOptaSymId || "UNK"
         : match.homeContestantOptaSymId || "UNK";
       const event = teamEvents.get(match.id) ?? upcoming.length + 1;
-      const raw = rateFixtureRaw(teamId, opponentId, isHome, metrics);
+      const rated = rateFixture(opponentId, isHome, metrics, scales);
 
-      const item: Pending = {
-        teamId,
+      upcoming.push({
         event,
         opponentShortName,
         isHome,
-        raw,
-      };
-      upcoming.push(item);
-      pending.push(item);
+        ...rated,
+      });
     }
-    pendingByTeam.set(teamId, upcoming);
-  }
-
-  const bands = buildBandFns(pending.map((p) => p.raw));
-
-  const result = new Map<string, NextFixture[]>();
-  for (const [teamId, items] of pendingByTeam) {
-    result.set(
-      teamId,
-      items.map((item) => {
-        const rated = applyBands(item.raw, bands);
-        return {
-          event: item.event,
-          opponentShortName: item.opponentShortName,
-          isHome: item.isHome,
-          ...rated,
-        };
-      })
-    );
+    result.set(teamId, upcoming);
   }
 
   return result;
