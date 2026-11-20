@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarRange,
+  ChartScatter,
   GitCompareArrows,
   Shield,
   Table2,
@@ -35,6 +36,12 @@ export const NAV = [
     href: "/my-team",
     label: "My Team",
     icon: Users,
+    enabled: true,
+  },
+  {
+    href: "/graphs",
+    label: "Graphs",
+    icon: ChartScatter,
     enabled: true,
   },
   {

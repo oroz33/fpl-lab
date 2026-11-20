@@ -2,8 +2,8 @@
 
 דשבורד מקומי לניתוח Fantasy Premier League בסגנון Opta / Fantasy Football Scout: טבלאות צפופות, פילטרים גלובליים + לפי עמודה, דלתות קבוצה, העלאה מרובת קבצים, ומחיקת נתונים מלאה.
 
-**גרסה נוכחית:** `v1.8.4` (מסונכרן עם יומן השינויים; `package.json` / Git Tags יעודכנו בתיוג הרשמי)  
-**עודכן לאחרונה:** Favorites top/bottom-N heatmap · H2H metrics refresh · Teams top/bottom-3 heatmap · My Team zero-GW squad fallback · Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Fixture Tracker
+**גרסה נוכחית:** `v1.8.5` (מסונכרן עם יומן השינויים; `package.json` / Git Tags יעודכנו בתיוג הרשמי)  
+**עודכן לאחרונה:** Graphs scatter page · Favorites top/bottom-N heatmap · H2H metrics refresh · Teams top/bottom-3 heatmap · My Team zero-GW squad fallback · Δ xGI Variance · Sticky Player/Team/Next/Avg FDR · Fixture Tracker
 
 ---
 
@@ -48,6 +48,7 @@
 - **Δ xGI Variance** — עמודה ב־Attack: Actual Returns (G+A) − xGI; סף ±0.75 ל־UNDER/OVER/ALIGNED; צבע הפוך (ירוק=פוטנציאל, אדום=סיכון רגרסיה) + tooltip
 - **Fixture Tracker** (`/fixtures`) — מטריצת FDR לפי GW עד סוף העונה, presets Next 5/10/Full Season, Offensive|Defensive
 - **H2H Compare** (`/h2h`) — השוואת שני שחקני שדה (ללא GKP), רדאר אחוזונים (פוליגון) עם תוויות ערכים גולמיים, מטריצת מנצחים
+- **Graphs** (`/graphs`) — scatter דו־ממדי ל־Players/Teams; בחירת מדדי X/Y מתוך הקטלוג; Generate; תוויות outliers + tooltip + zoom/reset; הורדת PDF עם cache מקומי ל־שעה (`localStorage`)
 - פילטרים גלובליים: Gameweek, Position, Team, Search, **Favorites**
 - **Favorite Players** — כוכב ליד שם שחקן + chip "Favorites" (סינון in-memory בלבד, נמחק ב־refresh); במצב Favorites ה־heatmap עובר ל־top/bottom-N לפי גודל המדגם (ראו מטה)
 - פילטר **מעל כל עמודה**: מספרים ≥ ערך; טקסט = contains; מספר עמודות = AND
@@ -63,7 +64,7 @@
 ## 2. הרצה מהירה
 
 ```bash
-cd C:\Work\CURSOR\FPL
+cd C:\Work\CURSOR\FPL_Lab
 npm install
 npm run dev
 ```
@@ -98,13 +99,14 @@ npm run dev
 ## 4. מבנה תיקיות
 
 ```
-FPL/
+FPL_Lab/
 ├── app/
 │   ├── layout.tsx
 │   ├── page.tsx                    # Player Data (Dashboard)
 │   ├── fixtures/page.tsx           # Fixture Tracker
 │   ├── h2h/page.tsx                # H2H Player Comparison
 │   ├── my-team/page.tsx            # My Team (squad + stats / intel tabs)
+│   ├── graphs/page.tsx             # Graphs scatter explorer
 │   ├── opta-batch/page.tsx
 │   ├── globals.css                 # צבעים + הסתרת spinners בפילטרים
 │   └── api/
@@ -125,6 +127,7 @@ FPL/
 │   ├── analytics/                  # XGIVarianceBadge (signed Δ xGI + tooltip)
 │   ├── fixtures/FixtureTrackerView.tsx
 │   ├── h2h/                        # H2HCompareView, radar, matrix, slots…
+│   ├── graphs/                     # GraphsView, ScatterChart (ECharts)
 │   ├── layout/                     # AppShell, AppHeader, AppSidebar, AppNavLinks
 │   └── ui/
 │       ├── data-table.tsx          # cumulative sticky · Next 3|5 · filters · heatmap · tooltips
@@ -138,6 +141,7 @@ FPL/
 │   ├── heatmap.ts                  # percentile + top/bottom-N rank heatmap helpers (shared)
 │   ├── squad/                      # rules, use-my-team (localStorage), player-intel
 │   ├── h2h/                        # metrics.ts, radar.ts
+│   ├── graphs/                     # axis-metrics, outliers, chart-cache, export-pdf
 │   ├── constants/
 │   │   ├── teams.ts                # TEAM_ACCENTS · TEAM_ID_TO_CODE · resolveTeamAccent
 │   │   └── metrics.ts              # METRIC_DESCRIPTIONS · metricDescription()
@@ -291,7 +295,7 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 
 **Design system:** FPL Lab Precision Analytics — Analytical Minimalist / Sports Terminal (גבולות 1px, צפיפות גבוהה, heatmap רך).
 
-**Universal App Shell:** Header קבוע (`FplLabLogo`, Engine badge, snapshots, Batch Links, Upload) + Sidebar (`Player Data`, **H2H Compare**, **Fixture Tracker** `/fixtures`, **My Team** `/my-team`, Squad Planner = Coming Soon, **Regression Lab** = Coming Soon) + Feed Latency.
+**Universal App Shell:** Header קבוע (`FplLabLogo`, Engine badge, snapshots, Batch Links, Upload) + Sidebar (`Player Data`, **H2H Compare**, **Fixture Tracker** `/fixtures`, **My Team** `/my-team`, **Graphs** `/graphs`, Squad Planner = Coming Soon, **Regression Lab** = Coming Soon) + Feed Latency.
 
 ### פילטרים גלובליים
 
@@ -310,7 +314,8 @@ xG, G, xGC, GC, CS, xCS (Poisson), ΔG, ΔGC, ΔCS
 
 **Fixture Tracker (`/fixtures`):** מטריצת team × GW מ־`startGw = latestCompleteGw + 1` עד GW38 · presets Next 5 / Next 10 / Full Season · Offensive|Defensive · sticky Team + N-AVG (מיון) · DGW stacked chips / BGW dashed · מיון Team A–Z ו־N-AVG  
 **My Team (`/my-team`):** סגל מקומי עד 15 שחקנים ב־`localStorage` (`fpl_lab_my_team`, מפתחות `teamId:playerId`) · מגבלות 2 GKP / 5 DEF / 5 MID / 3 FWD + מקס 3 לקבוצה · Mini-bar לפי עמדה · **Tab 1 — Last Fixtures Stats** (sticky POS/PLAYER/TEAM/NEXT/FDR, מדדים, heatmap מול כל הליגה, placeholder לשורות חסרות) · **Tab 2 — News & Team Intel** (`MyTeamNewsGrid`: Expected XI / Fitness / Press Quote מ־`data/player-news.json`) · `SquadDialog` לעריכה  
-**H2H Compare (`/h2h`):** בחירת שני שחקני שדה (ללא GKP) · Per 90 / Total · רדאר אחוזונים דינמי לפי זיווג עמדות (SVG, 6 צירים) · Archetype panel · מטריצת מנצחים ב־4 בלוקים (Opta בלבד — ללא ownership/price/FPL points)
+**H2H Compare (`/h2h`):** בחירת שני שחקני שדה (ללא GKP) · Per 90 / Total · רדאר אחוזונים דינמי לפי זיווג עמדות (SVG, 6 צירים) · Archetype panel · מטריצת מנצחים ב־4 בלוקים (Opta בלבד — ללא ownership/price/FPL points)  
+**Graphs (`/graphs`):** Players/Teams · בחירת מדדי X/Y · Generate מ־`/api/stats` · ECharts scatter (תוויות outliers, tooltip, zoom/reset) · הורדת PDF · snapshot מקומי ב־`localStorage` ל־שעה
 
 **Percentile Radar — כללים:**
 | שכבה | התנהגות |
@@ -519,10 +524,11 @@ xCS ≈ gamesPlayed × exp(−(xGC / gamesPlayed))
 
 ## 18. יומן שינויים
 
-Baseline נוכחי: **v1.8.4**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
+Baseline נוכחי: **v1.8.5**. שינויים עתידיים יתויגו לפי כללי SemVer בסעיף 19.
 
 | גרסה | נושא | מה נוסף / השתנה |
 |------|------|------------------|
+| v1.8.5 | Graphs scatter page | Route `/graphs` + sidebar; Players/Teams toggle; ציר X/Y ממדדי Opta; Generate מ־`/api/stats`; ECharts scatter (outliers, tooltip, zoom); PDF דרך jsPDF; cache מקומי TTL שעה (`fpl-lab:graphs:last`) |
 | v1.8.4 | Favorites top/bottom-N heatmap | במצב Favorites, Attack / Set Pieces / Defending עוברים מ־percentile ל־rank heat דרך `favoritesHeatmapTopN` + `DataTable.heatmapTopNOverride`: 1–5 → top/bottom 1, 6–10 → 2, 11+ → 3; מחוץ ל־Favorites נשאר percentile; Apps/Mins/Avg FDR/Δ xGI ללא heatmap |
 | v1.8.3 | H2H metrics refresh | מטריצת H2H: General / Attacking / Defensive / Set Pieces; רדאר לפי DEF-involved (Mins·xG·KP+BCC·xGI·DC/G·Set Pieces) מול MID/FWD-only (Apps·Mins·xG·KP+BCC·xGI·Set Pieces); הוסרו CS / G+A / Mins/App / Shots מציר הרדאר |
 | v1.8.2 | Teams top/bottom-3 heatmap | `buildTopBottomHeat` + `heatmapTopN` ב־DataTable; Teams Defensive/Offensive צובעים 3 הטובים (emerald) ו־3 הגרועים (rose); xGC/GC עם `lowerIsBetter`; ΔG/ΔGC/ΔCS בלי heatmap; Players/My Team נשארים percentile |
@@ -586,4 +592,4 @@ git show v1.0.0
 
 ---
 
-*FPL Lab · v1.8.4 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL`*
+*FPL Lab · v1.8.5 · Precision Analytics · Next.js 15 · `C:\Work\CURSOR\FPL_Lab`*
